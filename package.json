@@ -2,6 +2,8 @@
   "name": "gr8r-studio",
   "version": "1.0.0",
   "private": true,
+  "license": "MIT",
+  "author": "isley <jw@mr-money.de>",
   "description": "Gr8r Studio: a calm, structured project management workspace.",
   "type": "module",
   "scripts": {
