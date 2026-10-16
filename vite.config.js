@@ -49,5 +49,7 @@ function lucideSubset() {
 
 export default defineConfig({
   plugins: [lucideSubset()],
-  server: { port: 5173 },
+  // Backend mode (VITE_API_URL=/api): the API runs on its own port and the dev server forwards to it,
+  // so the session cookie stays same-origin (ADR 0004).
+  server: { port: 5173, proxy: { '/api': 'http://127.0.0.1:8000' } },
 });

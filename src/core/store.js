@@ -2,8 +2,11 @@
 import { TODAY, diffD, iso, parse, uid } from './utils.js';
 import { PCOLORS, TEAMS_SEED } from './constants.js';
 import { seed } from '../data/seed.js';
+import { BACKEND } from './api.js';
 
-export const STORE_KEY = 'gr8r.v2';
+/* In backend mode the server owns S.data: this browser keeps only prefs, views and the
+   sidebar state, under its own key so they never mix with the demo's saved workspace. */
+export const STORE_KEY = BACKEND ? 'gr8r.v2.backend' : 'gr8r.v2';
 export const DEFAULT_PREFS = {
   theme: 'system',
   accent: 'indigo',
@@ -24,7 +27,7 @@ export function load() {
     const raw = localStorage.getItem(STORE_KEY);
     if (raw) {
       const j = JSON.parse(raw);
-      if (j && j.data && j.data.tasks) return j;
+      if (j && (BACKEND || (j.data && j.data.tasks))) return j;
     }
   } catch {
     /* storage blocked or corrupt: start from seed data */
@@ -33,7 +36,7 @@ export function load() {
 }
 export const saved = load();
 export const S = {
-  data: saved?.data || seed(),
+  data: (!BACKEND && saved?.data) || seed(),
   prefs: Object.assign({}, DEFAULT_PREFS, saved?.prefs || {}),
   views: saved?.views || {},
   ui: {
@@ -83,14 +86,18 @@ export const S = {
   },
 };
 export let _saveT;
+let afterSave = null;
+/* Backend mode's sync module registers here when it loads; it runs on every debounced save. */
+export const onSave = fn => (afterSave = fn);
 export function save() {
   clearTimeout(_saveT);
   _saveT = setTimeout(() => {
     try {
-      localStorage.setItem(STORE_KEY, JSON.stringify({ data: S.data, prefs: S.prefs, views: S.views, collapsed: S.ui.collapsed }));
+      localStorage.setItem(STORE_KEY, JSON.stringify({ data: BACKEND ? undefined : S.data, prefs: S.prefs, views: S.views, collapsed: S.ui.collapsed }));
     } catch {
       /* storage full or blocked: keep working in memory */
     }
+    afterSave?.();
   }, 150);
 }
 

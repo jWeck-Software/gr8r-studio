@@ -54,11 +54,14 @@ import './features/archive.js';
 import './actions/teams.js';
 import './actions/subtasks.js';
 import './actions/archive.js';
+import './actions/sync.js';
 import { S, D } from './core/store.js';
+import { BACKEND } from './core/api.js';
 import { A } from './actions/actions.js';
+import { resumeSession } from './actions/sync.js';
 import { ROUTE_NAMES, render, go } from './shell/render.js';
 
-(function init() {
+(async function init() {
   document.documentElement.lang = 'en';
   if (!document.getElementById('sr-live')) {
     const l = document.createElement('div');
@@ -72,6 +75,15 @@ import { ROUTE_NAMES, render, go } from './shell/render.js';
   if (authRoutes.includes(h)) S.ui.auth = h;
   else if (h && ROUTE_NAMES[h]) S.ui.route = h;
   else S.ui.route = S.prefs.home || 'home';
+  // Backend mode: nothing renders until the server says who is signed in, so the demo data never flashes.
+  if (BACKEND) {
+    try {
+      if (!(await resumeSession())) S.ui.auth ||= 'login';
+    } catch (e) {
+      S.ui.auth ||= 'login';
+      S.ui.errors.login = e.message;
+    }
+  }
   render();
 })();
 

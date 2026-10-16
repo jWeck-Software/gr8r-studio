@@ -13,12 +13,22 @@ import { viewOf } from '../shell/view-engine.js';
 import { TEMPLATES, closeModal, openModal } from '../overlays/modals.js';
 import { closePop, openPop, tgt } from '../overlays/popovers.js';
 import { strengthMeter } from '../pages/settings.js';
+import { BACKEND } from '../core/api.js';
+import { signIn, signOut } from './sync.js';
 
 export const A = {},
   IN = {},
   KEY = {},
   DBL = {},
   BLUR = {};
+
+/* In backend mode, demo flows that would fake a sign-in or replace the whole Workspace in this
+   browser stop here instead (the next sync would push the replacement to the server). */
+export function demoOnly() {
+  if (!BACKEND) return false;
+  toast('Not available yet in backend mode', { kind: 'info' });
+  return true;
+}
 
 /* ---------- task mutations ---------- */
 export function nextKey(p) {
@@ -1747,6 +1757,7 @@ A.switchWs = el => {
 };
 A.newWorkspace = () => {
   S.ui.pop = null;
+  if (demoOnly()) return render();
   S.ui.auth = 'onboarding';
   S.ui.onb = 1;
   S.ui.onbData.ws = '';
@@ -1760,6 +1771,7 @@ A.signOut = () => {
   S.ui.modals = [];
   S.ui.auth = 'login';
   S.ui.errors = {};
+  if (BACKEND) signOut();
   render();
 };
 A.shortcuts = () => {
@@ -1769,6 +1781,7 @@ A.shortcuts = () => {
 };
 A.startOnboarding = () => {
   S.ui.pop = null;
+  if (demoOnly()) return render();
   S.ui.auth = 'onboarding';
   S.ui.onb = 0;
   render();
@@ -1789,6 +1802,7 @@ A.retryOnline = el => {
 };
 A.resetDemo = () => {
   S.ui.pop = null;
+  if (demoOnly()) return render();
   confirmDlg({
     title: 'Reset demo data?',
     body: 'All projects, tasks, and settings in this browser go back to the original sample workspace.',
@@ -1913,6 +1927,7 @@ A.saveWorkspace = () => {
   });
 };
 A.delWorkspace = () =>
+  demoOnly() ||
   confirmDlg({
     title: `Delete ${D().ws.name}?`,
     body: 'Every project, task, file, and comment in this workspace will be permanently deleted for all members.',
@@ -2095,13 +2110,25 @@ A.doLogin = () => {
     if (!e.email) $('#l-pw').value = pw;
     return;
   }
-  loadingBtn('login-btn', 750, () => enterApp(`Signed in as ${em}`));
+  if (!BACKEND) return loadingBtn('login-btn', 750, () => enterApp(`Signed in as ${em}`));
+  loadingBtn('login-btn', 0, () =>
+    signIn(em, pw).then(
+      () => enterApp(`Signed in as ${em}`),
+      err => {
+        S.ui.errors = { login: err.message };
+        render();
+        $('#l-pw')?.focus();
+      },
+    ),
+  );
 };
 A.socialAuth = el => {
+  if (demoOnly()) return;
   el.classList.add('is-loading');
   setTimeout(() => enterApp(`Signed in with ${el.dataset.v}`), 800);
 };
 A.doSignup = () => {
+  if (demoOnly()) return;
   const e = (S.ui.errors = {});
   const nm = $('#s-name').value.trim(),
     em = $('#s-email').value.trim(),
@@ -2248,6 +2275,10 @@ A.onbExit = () => {
   render();
 };
 A.onbFinish = () => {
+  if (demoOnly()) {
+    S.ui.auth = null;
+    return render();
+  }
   const o = S.ui.onbData;
   let p;
   mutate(() => {

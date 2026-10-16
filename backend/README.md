@@ -28,6 +28,9 @@ symfony serve --no-tls --port=8000
 php -S 127.0.0.1:8000 -t public
 ```
 
+To use it from the app, run the frontend with `VITE_API_URL=/api npm run dev` in the repository
+root (see "Backend mode" in the root README).
+
 Sign in as `hello@gr8rstudio.com` (the Owner) or any other active demo Member, such as
 `sarah@gr8rstudio.com`, with the password `gr8r-studio-demo`:
 
