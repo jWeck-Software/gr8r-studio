@@ -29,7 +29,9 @@ final readonly class TaskHandler implements CollectionHandler
     public function put(Member $actor, string $id, array $data): void
     {
         $ws = $actor->getWorkspace();
-        $record = self::record(new Fields($data, 'Task'));
+        $fields = new Fields($data, 'Task');
+        $record = self::record($fields);
+        $fav = $fields->bool('fav');
 
         $project = $this->em->find(Project::class, $record['project']);
         if (null === $project || $project->getWorkspace() !== $ws) {
@@ -56,6 +58,7 @@ final readonly class TaskHandler implements CollectionHandler
             $this->em->persist($task);
         }
         $task->update($record, $project, $assignee);
+        $actor->star('tasks', $id, $fav);
     }
 
     public function delete(Member $actor, string $id): void
@@ -107,7 +110,6 @@ final readonly class TaskHandler implements CollectionHandler
             'created' => $f->timestamp('created'),
             'updated' => $f->timestamp('updated'),
             'order' => $f->number('order'),
-            'fav' => $f->bool('fav'),
             'recur' => $f->nullableString('recur', 40),
             'completedAt' => $f->optionalTimestamp('completedAt'),
             'prevStatus' => $f->optionalOneOf('prevStatus', self::STATUSES),

@@ -36,9 +36,6 @@ class Project
     #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $start = null;
 
-    #[ORM\Column]
-    private bool $fav = false;
-
     /** @var list<string> Member ids */
     #[ORM\Column(type: Types::JSON, options: ['jsonb' => true])]
     private array $members = [];
@@ -97,7 +94,6 @@ class Project
         $this->lead = $record['lead'];
         $this->due = null === $record['due'] ? null : new \DateTimeImmutable($record['due']);
         $this->start = null === $record['start'] ? null : new \DateTimeImmutable($record['start']);
-        $this->fav = $record['fav'];
         $this->members = $record['members'];
         $this->description = $record['desc'];
         $this->milestones = $record['milestones'];
@@ -121,7 +117,6 @@ class Project
             'lead' => $this->lead,
             'due' => $this->due?->format('Y-m-d'),
             'start' => $this->start?->format('Y-m-d'),
-            'fav' => $this->fav,
             'members' => $this->members,
             'desc' => $this->description,
             'milestones' => $this->milestones,

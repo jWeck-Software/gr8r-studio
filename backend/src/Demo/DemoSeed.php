@@ -41,7 +41,7 @@ final class DemoSeed
             $ws = new Workspace('Gr8r Studio', self::WORKSPACE_URL, '#1D1C1A', true, ['p1', 'p2', 'p3', 'p4', 'p5', 'p7']);
             $this->em->persist($ws);
             $members = $this->members($ws);
-            $projects = $this->projects($ws);
+            $projects = $this->projects($ws, $members['m1']);
             $this->tasks($ws, $projects, $members);
         });
         $this->em->clear();
@@ -83,8 +83,12 @@ final class DemoSeed
         return $members;
     }
 
-    /** @return array<string, Project> */
-    private function projects(Workspace $ws): array
+    /**
+     * `fav` in the seeded records is the star of the signed-in demo Member, the Owner m1.
+     *
+     * @return array<string, Project>
+     */
+    private function projects(Workspace $ws, Member $owner): array
     {
         $records = [
             [
@@ -154,6 +158,7 @@ final class DemoSeed
             $project = new Project($record['id'], $ws);
             $project->update($record);
             $this->em->persist($project);
+            $owner->star('projects', $record['id'], $record['fav']);
             $projects[$record['id']] = $project;
         }
 
@@ -311,6 +316,7 @@ final class DemoSeed
             $task = new Task($record['id'], $ws);
             $task->update($record, $projects[$record['project']], $members[$record['assignee']]);
             $this->em->persist($task);
+            $members['m1']->star('tasks', $record['id'], $record['fav']);
         }
     }
 

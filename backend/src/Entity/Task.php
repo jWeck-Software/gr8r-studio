@@ -72,9 +72,6 @@ class Task
     #[ORM\Column]
     private float $sortOrder = 0;
 
-    #[ORM\Column]
-    private bool $fav = false;
-
     #[ORM\Column(length: 40, nullable: true)]
     private ?string $recur = null;
 
@@ -137,7 +134,6 @@ class Task
         $this->created = $record['created'];
         $this->updated = $record['updated'];
         $this->sortOrder = $record['order'];
-        $this->fav = $record['fav'];
         $this->recur = $record['recur'];
         $this->completedAt = $record['completedAt'] ?? null;
         $this->prevStatus = $record['prevStatus'] ?? null;
@@ -168,7 +164,6 @@ class Task
             'created' => $this->created,
             'updated' => $this->updated,
             'order' => floor($order) === $order && abs($order) < 2 ** 53 ? (int) $order : $order,
-            'fav' => $this->fav,
             'recur' => $this->recur,
         ];
         if (null !== $this->completedAt) {

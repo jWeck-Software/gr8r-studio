@@ -3,6 +3,7 @@
 namespace App\Entity;
 
 use App\Repository\MemberRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -12,6 +13,10 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: MemberRepository::class)]
 class Member
 {
+    /** @var array<string, list<string>> the ids this Member starred, by collection ("projects", "tasks") */
+    #[ORM\Column(type: Types::JSON, options: ['jsonb' => true])]
+    private array $favorites = [];
+
     public function __construct(
         #[ORM\Id]
         #[ORM\Column(length: 44)]
@@ -56,6 +61,22 @@ class Member
     public function getUser(): ?User
     {
         return $this->user;
+    }
+
+    /** Stars or unstars a record of a collection, such as a Project in "projects", for this Member only. */
+    public function star(string $collection, string $id, bool $starred): void
+    {
+        $ids = array_values(array_diff($this->favorites[$collection] ?? [], [$id]));
+        if ($starred) {
+            $ids[] = $id;
+        }
+        $this->favorites = [...$this->favorites, $collection => $ids];
+    }
+
+    /** @return list<string> the ids of the records of a collection this Member starred */
+    public function starred(string $collection): array
+    {
+        return $this->favorites[$collection] ?? [];
     }
 
     /** @return array<string, mixed> the Member in the frontend's shape */

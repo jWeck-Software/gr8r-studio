@@ -33,7 +33,7 @@ final readonly class Snapshot
 
         $members = $this->em->getRepository(Member::class)->findBy($byWorkspace, ['id' => 'ASC']);
         $projects = $this->em->getRepository(Project::class)->findBy($byWorkspace);
-        $tasks = array_map(static fn (Task $t): array => $t->toRecord(), $this->em->getRepository(Task::class)->findBy($byWorkspace));
+        $tasks = self::withFavorites($member, 'tasks', array_map(static fn (Task $t): array => $t->toRecord(), $this->em->getRepository(Task::class)->findBy($byWorkspace)));
         $seqs = self::keySequences($tasks);
 
         return [
@@ -41,7 +41,7 @@ final readonly class Snapshot
                 'ws' => ['name' => $ws->getName(), 'url' => $ws->getUrl(), 'c' => $ws->getC(), 'brand' => $ws->isBrand()],
                 'me' => $member->getId(),
                 'members' => array_map(static fn (Member $m): array => $m->toRecord(), $members),
-                'projects' => self::inCreationOrder(array_map(static fn (Project $p): array => [...$p->toRecord(), 'seq' => $seqs[$p->getId()] ?? self::FIRST_SEQ], $projects)),
+                'projects' => self::inCreationOrder(self::withFavorites($member, 'projects', array_map(static fn (Project $p): array => [...$p->toRecord(), 'seq' => $seqs[$p->getId()] ?? self::FIRST_SEQ], $projects))),
                 'tasks' => self::inCreationOrder($tasks),
                 'projOrder' => $ws->getProjOrder(),
                 'comments' => [],
@@ -58,6 +58,20 @@ final readonly class Snapshot
             'prefs' => new \stdClass(),
             'views' => new \stdClass(),
         ];
+    }
+
+    /**
+     * Sets `fav` on each record: whether this Member starred it. Favorites are per Member.
+     *
+     * @param list<array<string, mixed>> $records
+     *
+     * @return list<array<string, mixed>>
+     */
+    private static function withFavorites(Member $member, string $collection, array $records): array
+    {
+        $starred = array_flip($member->starred($collection));
+
+        return array_map(static fn (array $r): array => [...$r, 'fav' => isset($starred[$r['id']])], $records);
     }
 
     /**

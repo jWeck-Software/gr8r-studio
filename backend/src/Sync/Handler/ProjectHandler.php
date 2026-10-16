@@ -27,7 +27,9 @@ final readonly class ProjectHandler implements CollectionHandler
     public function put(Member $actor, string $id, array $data): void
     {
         $ws = $actor->getWorkspace();
-        $record = self::record(new Fields($data, 'Project'));
+        $fields = new Fields($data, 'Project');
+        $record = self::record($fields);
+        $fav = $fields->bool('fav');
 
         foreach (array_filter([$record['lead']]) as $lead) {
             $this->assertMember($actor, $lead, 'lead');
@@ -48,6 +50,7 @@ final readonly class ProjectHandler implements CollectionHandler
             $this->em->persist($project);
         }
         $project->update($record);
+        $actor->star('projects', $id, $fav);
     }
 
     public function delete(Member $actor, string $id): void
@@ -90,7 +93,7 @@ final readonly class ProjectHandler implements CollectionHandler
     }
 
     /**
-     * The Project as stored; `seq` is derived by the snapshot and ignored here.
+     * The Project as stored; `fav` is the actor's star and `seq` is derived by the snapshot.
      *
      * @return array<string, mixed>
      */
@@ -112,7 +115,6 @@ final readonly class ProjectHandler implements CollectionHandler
             'lead' => $f->nullableString('lead', 44),
             'due' => $f->nullableDate('due'),
             'start' => $f->nullableDate('start'),
-            'fav' => $f->bool('fav'),
             'members' => $f->stringList('members'),
             'desc' => $f->string('desc'),
             'milestones' => $milestones,
