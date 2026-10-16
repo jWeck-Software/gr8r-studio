@@ -59,4 +59,10 @@ class Workspace
     {
         return $this->projOrder;
     }
+
+    /** @param list<string> $projOrder */
+    public function setProjOrder(array $projOrder): void
+    {
+        $this->projOrder = $projOrder;
+    }
 }

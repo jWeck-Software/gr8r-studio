@@ -112,6 +112,7 @@ final readonly class TaskHandler implements CollectionHandler
             'completedAt' => $f->optionalTimestamp('completedAt'),
             'prevStatus' => $f->optionalOneOf('prevStatus', self::STATUSES),
             'archived' => $f->optionalBool('archived'),
+            'archivedAt' => $f->optionalTimestamp('archivedAt'),
         ];
     }
 

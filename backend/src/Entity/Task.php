@@ -86,6 +86,10 @@ class Task
     #[ORM\Column(length: 20, nullable: true)]
     private ?string $prevStatus = null;
 
+    /** Epoch milliseconds; null when the record carries no `archivedAt` or it is null. */
+    #[ORM\Column(type: Types::BIGINT, nullable: true)]
+    private ?int $archivedAt = null;
+
     /** Null when the record carries no `archived` key. */
     #[ORM\Column(nullable: true)]
     private ?bool $archived = null;
@@ -138,6 +142,7 @@ class Task
         $this->completedAt = $record['completedAt'] ?? null;
         $this->prevStatus = $record['prevStatus'] ?? null;
         $this->archived = $record['archived'] ?? null;
+        $this->archivedAt = $record['archivedAt'] ?? null;
     }
 
     /** @return array<string, mixed> the Task in the frontend's shape */
@@ -174,6 +179,9 @@ class Task
         }
         if (null !== $this->archived) {
             $record['archived'] = $this->archived;
+        }
+        if (null !== $this->archivedAt) {
+            $record['archivedAt'] = $this->archivedAt;
         }
 
         return $record;

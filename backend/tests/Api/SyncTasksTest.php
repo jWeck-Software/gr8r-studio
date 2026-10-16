@@ -32,13 +32,14 @@ final class SyncTasksTest extends ApiTestCase
         self::assertSame('WEB-112', $saved['key']);
     }
 
-    public function testArchivingKeepsTheTaskAndRestoringKeepsTheFlag(): void
+    public function testArchivingKeepsTheTaskAndWhenAndRestoringKeepsTheFlag(): void
     {
-        $this->sync([['op' => 'put', 'type' => 'tasks', 'id' => 'xk3j9q2', 'data' => self::newTask(['archived' => true])]]);
-        self::assertTrue($this->task('xk3j9q2')['archived']);
+        $this->sync([['op' => 'put', 'type' => 'tasks', 'id' => 'xk3j9q2', 'data' => self::newTask(['archived' => true, 'archivedAt' => 1792238400000])]]);
+        self::assertSame([true, 1792238400000], [$this->task('xk3j9q2')['archived'], $this->task('xk3j9q2')['archivedAt']]);
 
-        $this->sync([['op' => 'put', 'type' => 'tasks', 'id' => 'xk3j9q2', 'data' => self::newTask(['archived' => false])]]);
+        $this->sync([['op' => 'put', 'type' => 'tasks', 'id' => 'xk3j9q2', 'data' => self::newTask(['archived' => false, 'archivedAt' => null])]]);
         self::assertFalse($this->task('xk3j9q2')['archived']);
+        self::assertArrayNotHasKey('archivedAt', $this->task('xk3j9q2'));
     }
 
     public function testDragAndDropOrderBetweenTwoTasksIsKept(): void

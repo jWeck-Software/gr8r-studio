@@ -8,26 +8,31 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 /**
- * Applies a batch of writes from the frontend for one Member: an ordered list of
- * `put` and `delete` ops per collection, all in one transaction. Either every op is
- * applied or, when one is refused, none is.
+ * Applies a batch of writes from the frontend for one Member, all in one transaction: an
+ * ordered list of `put` and `delete` ops on collections (CollectionHandler) and `set` ops on
+ * singletons (SingletonHandler). Either every op is applied or, when one is refused, none is.
  */
 final readonly class Sync
 {
     /** Ids are client-generated (ADR 0003); the frontend's uid() and the seed ids match this. */
     public const string ID_FORMAT = '/^[a-z]{1,3}[a-z0-9-]{1,40}$/';
 
-    /** @var array<string, CollectionHandler> */
+    /** @var array<string, CollectionHandler|SingletonHandler> */
     private array $handlers;
 
-    /** @param iterable<CollectionHandler> $handlers */
+    /**
+     * @param iterable<CollectionHandler> $collections
+     * @param iterable<SingletonHandler>  $singletons
+     */
     public function __construct(
         private EntityManagerInterface $em,
         #[AutowireIterator(CollectionHandler::class)]
-        iterable $handlers,
+        iterable $collections,
+        #[AutowireIterator(SingletonHandler::class)]
+        iterable $singletons,
     ) {
         $byType = [];
-        foreach ($handlers as $handler) {
+        foreach ([...$collections, ...$singletons] as $handler) {
             $byType[$handler->type()] = $handler;
         }
         $this->handlers = $byType;
@@ -64,6 +69,17 @@ final readonly class Sync
             throw SyncRejected::invalid('Every op needs an "op" and a "type".');
         }
         $handler = $this->handlers[$op['type']] ?? throw SyncRejected::invalid(\sprintf('Unknown type "%s".', $op['type']));
+        if ($handler instanceof SingletonHandler) {
+            if ('set' !== $op['op']) {
+                throw SyncRejected::invalid(\sprintf('"%s" is not an op for %s; use set.', $op['op'], $op['type']));
+            }
+            if (!\array_key_exists('data', $op)) {
+                throw SyncRejected::invalid('A set needs the whole value as "data".');
+            }
+            $handler->set($actor, $op['data']);
+
+            return;
+        }
         if (!\in_array($op['op'], ['put', 'delete'], true)) {
             throw SyncRejected::invalid(\sprintf('"%s" is not an op for %s; use put or delete.', $op['op'], $op['type']));
         }

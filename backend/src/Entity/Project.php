@@ -57,6 +57,10 @@ class Project
     #[ORM\Column(nullable: true)]
     private ?bool $isPrivate = null;
 
+    /** Epoch milliseconds; null when the record carries no `archivedAt` or it is null. */
+    #[ORM\Column(type: Types::BIGINT, nullable: true)]
+    private ?int $archivedAt = null;
+
     /** Null when the record carries no `archived` key. */
     #[ORM\Column(nullable: true)]
     private ?bool $archived = null;
@@ -100,6 +104,7 @@ class Project
         $this->last = $record['last'];
         $this->isPrivate = $record['private'] ?? null;
         $this->archived = $record['archived'] ?? null;
+        $this->archivedAt = $record['archivedAt'] ?? null;
     }
 
     /** @return array<string, mixed> the Project in the frontend's shape */
@@ -127,6 +132,9 @@ class Project
         }
         if (null !== $this->archived) {
             $record['archived'] = $this->archived;
+        }
+        if (null !== $this->archivedAt) {
+            $record['archivedAt'] = $this->archivedAt;
         }
 
         return $record;

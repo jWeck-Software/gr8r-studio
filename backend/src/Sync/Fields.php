@@ -75,6 +75,13 @@ final readonly class Fields
         return null === ($this->data[$field] ?? null) ? null : $this->timestamp($field);
     }
 
+    public function nullableInt(string $field): ?int
+    {
+        $value = $this->required($field);
+
+        return null === $value || \is_int($value) ? $value : throw $this->wrong($field, 'a whole number or null');
+    }
+
     public function number(string $field): float
     {
         $value = $this->required($field);
