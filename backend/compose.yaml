@@ -1,0 +1,23 @@
+name: gr8r-db
+
+services:
+  database:
+    image: postgres:17-alpine
+    container_name: gr8r-db
+    environment:
+      POSTGRES_DB: gr8r
+      POSTGRES_USER: gr8r
+      POSTGRES_PASSWORD: gr8r
+    ports:
+      - '5433:5432'
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-d', 'gr8r', '-U', 'gr8r']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+    volumes:
+      - gr8r-db-data:/var/lib/postgresql/data
+
+volumes:
+  gr8r-db-data:

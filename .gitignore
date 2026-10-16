@@ -7,3 +7,6 @@ __MACOSX/
 .env*
 .scratch/
 .project-map/
+!backend/.env
+!backend/.env.dev
+!backend/.env.test
