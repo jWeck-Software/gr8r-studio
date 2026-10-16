@@ -16,6 +16,9 @@ use Psr\Clock\ClockInterface;
  */
 final readonly class Snapshot
 {
+    /** The frontend numbers a Project's first new Task 201, after the seeded keys. */
+    private const int FIRST_SEQ = 200;
+
     public function __construct(
         private EntityManagerInterface $em,
         private ClockInterface $clock,
@@ -30,15 +33,16 @@ final readonly class Snapshot
 
         $members = $this->em->getRepository(Member::class)->findBy($byWorkspace, ['id' => 'ASC']);
         $projects = $this->em->getRepository(Project::class)->findBy($byWorkspace);
-        $tasks = $this->em->getRepository(Task::class)->findBy($byWorkspace);
+        $tasks = array_map(static fn (Task $t): array => $t->toRecord(), $this->em->getRepository(Task::class)->findBy($byWorkspace));
+        $seqs = self::keySequences($tasks);
 
         return [
             'data' => [
                 'ws' => ['name' => $ws->getName(), 'url' => $ws->getUrl(), 'c' => $ws->getC(), 'brand' => $ws->isBrand()],
                 'me' => $member->getId(),
                 'members' => array_map(static fn (Member $m): array => $m->toRecord(), $members),
-                'projects' => self::inCreationOrder(array_map(static fn (Project $p): array => $p->toRecord(), $projects)),
-                'tasks' => self::inCreationOrder(array_map(static fn (Task $t): array => $t->toRecord(), $tasks)),
+                'projects' => self::inCreationOrder(array_map(static fn (Project $p): array => [...$p->toRecord(), 'seq' => $seqs[$p->getId()] ?? self::FIRST_SEQ], $projects)),
+                'tasks' => self::inCreationOrder($tasks),
                 'projOrder' => $ws->getProjOrder(),
                 'comments' => [],
                 'activity' => [],
@@ -46,7 +50,7 @@ final readonly class Snapshot
                 'files' => [],
                 'events' => [],
                 'savedViews' => [],
-                'teams' => [],
+                // No `teams` key until Teams are stored: the frontend then uses its built-in Teams.
                 'recentSearches' => [],
                 'notifPrefs' => new \stdClass(),
                 ...$this->demoOnly(),
@@ -54,6 +58,26 @@ final readonly class Snapshot
             'prefs' => new \stdClass(),
             'views' => new \stdClass(),
         ];
+    }
+
+    /**
+     * The highest Task key number per Project id, archived Tasks included, and at least
+     * FIRST_SEQ. The frontend's nextKey() numbers the next Task seq + 1, so keys stay unique
+     * across reloads (Task keys are client-derived, ADR 0003).
+     *
+     * @param list<array<string, mixed>> $tasks
+     *
+     * @return array<string, int>
+     */
+    private static function keySequences(array $tasks): array
+    {
+        $seqs = [];
+        foreach ($tasks as $t) {
+            $number = (int) substr($t['key'], strrpos($t['key'], '-') + 1);
+            $seqs[$t['project']] = max($seqs[$t['project']] ?? self::FIRST_SEQ, $number);
+        }
+
+        return $seqs;
     }
 
     /**

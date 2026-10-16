@@ -73,6 +73,7 @@ final class BootstrapTest extends ApiTestCase
                 ['name' => 'App Store submission', 'date' => '2026-12-01'],
             ],
             'last' => 48,
+            'seq' => 200,
         ], $projects[1]);
     }
 
@@ -154,9 +155,17 @@ final class BootstrapTest extends ApiTestCase
 
         $data = $this->getJson('/api/bootstrap')['data'];
 
-        foreach (['comments', 'activity', 'notifs', 'files', 'events', 'savedViews', 'teams', 'recentSearches'] as $collection) {
+        foreach (['comments', 'activity', 'notifs', 'files', 'events', 'savedViews', 'recentSearches'] as $collection) {
             self::assertSame([], $data[$collection], $collection);
         }
+    }
+
+    /** Until Teams are stored, the frontend falls back to its built-in Teams when the key is missing. */
+    public function testTeamsAreLeftToTheFrontend(): void
+    {
+        $this->signIn();
+
+        self::assertArrayNotHasKey('teams', $this->getJson('/api/bootstrap')['data']);
     }
 
     public function testObjectsStayObjectsWhenEmpty(): void
