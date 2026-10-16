@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test": "node --test \"src/**/*.test.js\""
   },
   "engines": {
     "node": ">=18"
