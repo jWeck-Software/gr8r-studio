@@ -15,8 +15,9 @@ import { toast } from '../ui/toast.js';
 import { render } from '../shell/render.js';
 
 /* Collections and singletons written through /api/sync, in the order the server applies them:
-   Projects before the Tasks and the Project order that refer to them. Grows ticket by ticket. */
-export const SYNCED = ['projects', 'tasks', 'projOrder'];
+   Projects before the Tasks and the Project order that refer to them, Tasks before the Comments
+   and Activity about them. Grows ticket by ticket. */
+export const SYNCED = ['projects', 'tasks', 'projOrder', 'comments', 'activity'];
 
 let synced = null; // what the server last confirmed, as a deep copy; null while signed out
 let session = 0; // bumped on every sign-in and sign-out, so late answers of an old session are dropped
