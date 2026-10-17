@@ -45,6 +45,22 @@ curl -c cookies.txt -H 'Content-Type: application/json' \
 curl -b cookies.txt http://127.0.0.1:8000/api/bootstrap
 ```
 
+## Under Apache
+
+`public/.htaccess` routes every request that isn't a file to `index.php` (the rules the
+`symfony/apache-pack` recipe ships) and hands PHP files to PHP 8.4's FPM socket, whatever the
+vhost's default PHP is. With the repo served at `http://localhost/repos/gr8r-studio/`:
+
+```bash
+# frontend, built for the subdirectory and pointed at the backend there
+VITE_API_URL=/repos/gr8r-studio/backend/public/api npx vite build --base /repos/gr8r-studio/dist/
+# links in emails should open that build: put this in backend/.env.local (git-ignored)
+APP_FRONTEND_URL=http://localhost/repos/gr8r-studio/dist
+```
+
+Then open `http://localhost/repos/gr8r-studio/dist/`. The database and Mailpit still come from
+`docker compose up -d --wait`; no PHP or Vite server is needed.
+
 ## Tests
 
 PHPUnit runs against the real PostgreSQL test database (`gr8r_test`); every test runs in a transaction
