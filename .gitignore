@@ -12,6 +12,14 @@ __MACOSX/
 /public/index.html
 /public/favicon.svg
 /public/assets/
+# The same build for the browser tests (npm run build:e2e), and what Playwright keeps: signed-in
+# sessions (live cookies) and reports.
+/e2e/www/index.html
+/e2e/www/favicon.svg
+/e2e/www/assets/
+/e2e/.auth/
+/test-results/
+/playwright-report/
 
 ###> symfony/framework-bundle ###
 !/.env

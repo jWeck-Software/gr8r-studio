@@ -222,6 +222,26 @@ php bin/phpunit
 php -d upload_max_filesize=30M -d post_max_size=32M bin/phpunit
 ```
 
+#### Browser tests
+
+Playwright drives the backend-mode app under Apache the way a user does (`e2e/`). They run on their
+own database, so they never touch the dev one: `e2e/www/` is a second web root next to `public/`,
+with the same `.htaccess` and a front controller (`e2e/www/index.php`) that takes the database, the
+file storage and the base of mailed links from `.env.e2e.local`. Links the app mails are read from
+`var/log/mail.log`.
+
+```sh
+# Once: an empty database gr8r_e2e for the same MariaDB user, and .env.e2e.local (git-ignored):
+# DATABASE_URL="mysql://<user>:<password>@127.0.0.1:3306/gr8r_e2e?serverVersion=10.11.14-MariaDB&charset=utf8mb4"
+# FILE_STORAGE_DIR=%kernel.project_dir%/var/e2e-storage
+# APP_FRONTEND_URL=http://localhost/repos/gr8r-studio/e2e/www
+
+npm run test:e2e   # builds into e2e/www/, migrates and seeds gr8r_e2e, signs in the demo roles, runs e2e/
+```
+
+Signed-in sessions are kept in `e2e/.auth/` (git-ignored, live cookies). The browser is the cached
+Chromium that `@playwright/test` 1.61.1 expects.
+
 ### Endpoints
 
 | Endpoint                           | Purpose                                                                                                                                                                                                                                                                                                                   |

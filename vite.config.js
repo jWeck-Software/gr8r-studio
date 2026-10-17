@@ -57,7 +57,9 @@ function lucideSubset() {
      the app reaches the API next to itself, under http://localhost/repos/gr8r-studio/public/ as at a
      vhost's root. Never empty public/: index.php and .htaccess live there.
    - `npm run build:demo` (--mode demo): the localStorage demo without VITE_API_URL into dist/, for Vercel.
-   assets/public/ (the favicon) is copied into either. */
+   - `npm run build:e2e` (--mode e2e): the backend-mode app into e2e/www/, next to the browser tests'
+     own front controller (e2e/www/index.php); never emptied either.
+   assets/public/ (the favicon) is copied into each. */
 export default defineConfig(({ mode }) => ({
   root,
   base: './',
@@ -65,7 +67,7 @@ export default defineConfig(({ mode }) => ({
   build:
     mode === 'demo'
       ? { outDir: fileURLToPath(new URL('./dist', import.meta.url)), emptyOutDir: true }
-      : { outDir: fileURLToPath(new URL('./public', import.meta.url)), emptyOutDir: false },
+      : { outDir: fileURLToPath(new URL(mode === 'e2e' ? './e2e/www' : './public', import.meta.url)), emptyOutDir: false },
   // Backend mode in development (VITE_API_URL=/api npm run dev): the dev server forwards /api to the
   // app under Apache, so the session cookie stays same-origin (ADR 0004).
   server: {

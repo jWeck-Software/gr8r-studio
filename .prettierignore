@@ -1,6 +1,10 @@
 dist
 node_modules
 package-lock.json
+# The browser tests' build and Playwright's output
+/e2e/www/
+/test-results/
+/playwright-report/
 # The Symfony app at the root (the frontend is in assets/)
 /bin/
 /config/

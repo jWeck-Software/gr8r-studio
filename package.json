@@ -10,17 +10,20 @@
     "dev": "vite",
     "build": "VITE_API_URL=api vite build",
     "build:demo": "vite build --mode demo",
+    "build:e2e": "VITE_API_URL=api vite build --mode e2e",
     "preview": "vite preview --mode demo",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "node --test \"assets/src/**/*.test.js\""
+    "test": "node --test \"assets/src/**/*.test.js\"",
+    "test:e2e": "npm run build:e2e && playwright test"
   },
   "engines": {
     "node": ">=22"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
+    "@playwright/test": "1.61.1",
     "eslint": "^9.39.5",
     "globals": "^15.15.0",
     "lucide": "^0.460.0",
