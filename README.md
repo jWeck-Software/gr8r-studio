@@ -38,7 +38,9 @@ origin. Sign in as `hello@gr8rstudio.com` with `gr8r-studio-demo`. The app asks 
 every `save()` sends the changed records to `/api/sync` (`src/actions/sync.js`; the synced
 collections are listed in `SYNCED`, so far `projects`, `tasks`, the sidebar's `projOrder`, `comments`, `activity`
 and the `read` flag of `notifs`). Preferences and view settings stay in
-localStorage for now. Sign-up, social sign-in, onboarding and the demo reset are not available
+localStorage for now. Teammates' changes come in when the tab regains focus and every 60 s
+while it is visible (after pending changes are sent, and not while you are typing in a field or
+have a dialog open). Sign-up, social sign-in, onboarding and the demo reset are not available
 in this mode yet.
 
 ## Project structure
