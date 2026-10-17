@@ -77,6 +77,13 @@ Where this backend knowingly departs from the conventions above, and why:
   reason for a refusal, which the handler sends as the 403's message.
 - **The sign-in body is read by the firewall's `json_login`** (as the spec says), not by
   `#[MapRequestPayload]`; `AuthController::login` only answers what `json_login` doesn't take.
+- **The password policy is `App\Security\PasswordPolicy`, not a Validator constraint.** Accepting an
+  Invite applies it only when a new User is created; when the address has a User already, that
+  User's current password is checked instead, which a constraint on the request DTO can't tell apart.
+- **Routes that take a Member's id name it `{invited}` (or another name), never `{id}`.** Doctrine's
+  entity value resolver maps an `{id}` placeholder onto a `Member $member` argument before
+  `CurrentMemberResolver` runs, so the target would become the signed-in actor
+  (`POST /api/members/{invited}/invite`; the README writes it as `{id}` for callers).
 - **Numbering Tasks locks the Project row (`FOR UPDATE`), not `symfony/lock`.** The lock has to last
   exactly as long as the sync transaction that stores the keys, and the database is what every
   server shares.

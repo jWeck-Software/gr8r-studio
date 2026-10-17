@@ -91,7 +91,7 @@ final class InvitesTest extends ApiTestCase
         $body = $this->getJson('/api/invites/'.str_repeat('x', 43));
 
         self::assertResponseStatusCodeSame(404);
-        self::assertSame('not_found', $body['error']);
+        self::assertSame(['error' => 'not_found', 'message' => 'This invite link is not valid any more. It may have been used already or replaced by a newer one.'], $body);
     }
 
     public function testTheLinkWorksOnce(): void
