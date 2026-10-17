@@ -384,7 +384,7 @@ if (BACKEND) {
     deleteWorkspace,
     startWorkspace: startFromOnboarding,
     // The User in setup has no Workspace to go back to: leaving signs out.
-    leaveSetup: () => signOut().then(() => 'out'),
+    leaveSetup: signOut,
     resume: resumeSession,
     flush: settle,
   });

@@ -96,8 +96,8 @@ export const onSave = fn => (afterSave = fn);
 /* What a User does with their account, session and Workspace. Each mode hands its calls over here when
    its module loads, so the actions reach them without importing it: backend mode's sync module, which
    asks the server (it imports the shell, which imports the actions), and the demo's stand-in
-   (actions/demo-account.js), which answers after the delay the demo always faked. Every call returns a
-   Promise; a refusal rejects with an Error whose message can be shown as is. */
+   (actions/demo-account.js), which answers at once. Every call returns a Promise (the demo: a thenable
+   that calls back in the same tick); a refusal rejects with an Error whose message can be shown as is. */
 const account = {};
 export const onSession = calls => Object.assign(account, calls);
 /* Resolves with the Member signed in, or null for a User without a Workspace. */
@@ -108,7 +108,7 @@ export const resendVerification = email => account.resendVerification(email);
 /* The reset link from the form, and again from "Resend email" (which the demo answers at once). */
 export const forgotPassword = email => account.forgotPassword(email);
 export const resendResetLink = email => account.resendResetLink(email);
-/* Resolves with 'in', 'setup' (signed in without a Workspace) or 'out' (set, but not signed in: the demo). */
+/* Resolves with 'in', or 'setup' (signed in without a Workspace). The demo's sets the password and signs nobody in. */
 export const resetPassword = (token, password) => account.resetPassword(token, password);
 export const changePassword = (current, next) => account.changePassword(current, next);
 export const resendInvite = memberId => account.resendInvite(memberId);
@@ -119,7 +119,7 @@ export const deleteWorkspace = name => account.deleteWorkspace(name);
 /* The Workspace onboarding's answers (S.ui.onbData) describe. Resolves with what names it inside
    the change that sets it up (the demo's, see setUpWorkspace()), or undefined when that is done. */
 export const startWorkspace = onb => account.startWorkspace(onb);
-/* Leaving onboarding unfinished: resolves with 'in' (back into the Workspace) or 'out' (signed out). */
+/* Leaving onboarding unfinished: backend mode signs out; the demo goes back into its Workspace. */
 export const leaveSetup = () => account.leaveSetup();
 /* 'in', 'out' or 'setup' (signed in without a Workspace), as at boot. */
 export const resumeSession = () => account.resume();

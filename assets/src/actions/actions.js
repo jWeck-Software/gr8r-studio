@@ -62,6 +62,9 @@ export function demoOnly() {
   toast('Not available yet in backend mode', { kind: 'info' });
   return true;
 }
+/* What an account call shows when the server refuses it: `show`, or the message as a toast. The demo's
+   stand-ins never refuse, so there it is nothing and the demo build keeps none of it. */
+const refused = MODE.can.askServer ? (show = err => toast(err.message, { kind: 'err' })) => show : () => undefined;
 
 /* ---------- task mutations ---------- */
 export function nextKey(p) {
@@ -1654,10 +1657,7 @@ A.resendInvite = el => {
   const m = mem(el.dataset.id);
   S.ui.pop = null;
   render();
-  resendInvite(m.id).then(
-    () => toast(`Invite resent to ${m.email}`),
-    err => toast(err.message, { kind: 'err' }),
-  );
+  resendInvite(m.id).then(() => toast(`Invite resent to ${m.email}`), refused());
 };
 A.viewProfile = el => go('member', { id: el.dataset.id });
 A.assignToMember = el => {
@@ -2036,11 +2036,7 @@ A.delWorkspace = () =>
     danger: true,
     typeName: D().ws.name,
     // Backend mode: gone for everyone; the Owner, left without a Workspace, can start a new one. The demo starts over.
-    run: () =>
-      deleteWorkspace(D().ws.name).then(
-        () => toast(MODE.text.workspaceDeleted, { kind: 'info', ms: 5000 }),
-        err => toast(err.message, { kind: 'err' }),
-      ),
+    run: () => deleteWorkspace(D().ws.name).then(() => toast(MODE.text.workspaceDeleted, { kind: 'info', ms: 5000 }), refused()),
   });
 A.avColor = el => {
   me().c = el.dataset.v;
@@ -2094,14 +2090,17 @@ A.savePassword = () => {
     render();
     toast('Password updated');
   };
-  loadingBtn('pw-save', 0, () =>
-    changePassword(cur, nw).then(done, err => {
-      // A wrong current password or a new one the server finds too weak shows at its field; anything else is a toast.
-      if (err.field === 'current') S.ui.errors = { pwCur: err.message };
-      else if (err.field === 'new') S.ui.errors = { pwNew: err.message };
-      else toast(err.message, { kind: 'err' });
-      render();
-    }),
+  loadingBtn('pw-save', MODE.wait.changePassword, () =>
+    changePassword(cur, nw).then(
+      done,
+      refused(err => {
+        // A wrong current password or a new one the server finds too weak shows at its field; anything else is a toast.
+        if (err.field === 'current') S.ui.errors = { pwCur: err.message };
+        else if (err.field === 'new') S.ui.errors = { pwNew: err.message };
+        else toast(err.message, { kind: 'err' });
+        render();
+      }),
+    ),
   );
 };
 A.revokeSession = el => {
@@ -2217,10 +2216,10 @@ A.doLogin = () => {
     if (!e.email) $('#l-pw').value = pw;
     return;
   }
-  loadingBtn('login-btn', 0, () =>
+  loadingBtn('login-btn', MODE.wait.signIn, () =>
     signIn(em, pw).then(
       member => (member ? enterApp(`Signed in as ${em}`) : (beginOnboarding(), render())),
-      err => {
+      refused(err => {
         if (err.code === 'unverified') {
           // The verify screen, with the address to send a new link to.
           S.ui.auth = 'verify';
@@ -2231,7 +2230,7 @@ A.doLogin = () => {
         S.ui.errors = { login: err.message };
         render();
         $('#l-pw')?.focus();
-      },
+      }),
     ),
   );
 };
@@ -2297,12 +2296,15 @@ A.doSignup = () => {
     startResend();
     render();
   };
-  loadingBtn('signup-btn', 0, () =>
-    signUp(nm, em, pw).then(verify, err => {
-      S.ui.errors = { signup: err.message };
-      render();
-      $('#s-email').value = em;
-    }),
+  loadingBtn('signup-btn', MODE.wait.signUp, () =>
+    signUp(nm, em, pw).then(
+      verify,
+      refused(err => {
+        S.ui.errors = { signup: err.message };
+        render();
+        $('#s-email').value = em;
+      }),
+    ),
   );
 };
 export function startResend() {
@@ -2326,12 +2328,8 @@ A.resend = el => {
       toast(`Verification email sent to ${S.ui.af.email}`);
     };
     // The server answers alike for every address, so the toast says the same.
-    resendVerification(S.ui.af.email).then(sent, err => toast(err.message, { kind: 'err' }));
-  } else
-    resendResetLink(S.ui.af.email).then(
-      () => toast(`Reset link sent to ${S.ui.af.email}`),
-      err => toast(err.message, { kind: 'err' }),
-    );
+    resendVerification(S.ui.af.email).then(sent, refused());
+  } else resendResetLink(S.ui.af.email).then(() => toast(`Reset link sent to ${S.ui.af.email}`), refused());
 };
 /* Onboarding from its first step: after verifying, or for a User signed in without a Workspace. The caller renders. */
 export function beginOnboarding() {
@@ -2343,15 +2341,13 @@ export function beginOnboarding() {
   S.ui.onbData.urlTouched = false;
 }
 A.verified = () => {
-  // The link signs in the browser it is opened in: if that was this one, carry on from here (in the demo, always).
-  resumeSession().then(
-    session => {
-      if (session === 'setup') return (beginOnboarding(), render());
-      if (session === 'in') return enterApp(`Welcome to ${D().ws.name}`);
-      toast('Open the link in the email we sent you to verify your address.', { kind: 'info' });
-    },
-    err => toast(err.message, { kind: 'err' }),
-  );
+  // The link signs in the browser it is opened in: if that was this one, carry on from here. The demo's button stands in for
+  // the link, so its User always carries on, into setup.
+  resumeSession().then(session => {
+    if (MODE.can.fakeEmailLinks || session === 'setup') return (beginOnboarding(), render());
+    if (session === 'in') return enterApp(`Welcome to ${D().ws.name}`);
+    toast('Open the link in the email we sent you to verify your address.', { kind: 'info' });
+  }, refused());
 };
 A.doForgot = () => {
   const em = $('#f-email').value.trim();
@@ -2367,11 +2363,14 @@ A.doForgot = () => {
     render();
   };
   // The server answers alike for every address (no account, no email), so the screen says the same.
-  loadingBtn('forgot-btn', 0, () =>
-    forgotPassword(em).then(sent, err => {
-      S.ui.errors = { forgot: err.message };
-      render();
-    }),
+  loadingBtn('forgot-btn', MODE.wait.forgotPassword, () =>
+    forgotPassword(em).then(
+      sent,
+      refused(err => {
+        S.ui.errors = { forgot: err.message };
+        render();
+      }),
+    ),
   );
 };
 A.doReset = () => {
@@ -2384,25 +2383,25 @@ A.doReset = () => {
     render();
     return;
   }
-  // Backend mode: the link from the email (#reset/<token>) sets the password and signs in. The demo's reset page has no token.
-  loadingBtn('reset-btn', 0, () =>
+  // Backend mode: the link from the email (#reset/<token>) sets the password and signs in.
+  loadingBtn('reset-btn', MODE.wait.resetPassword, () =>
     resetPassword(S.ui.reset?.token, a).then(
       session => {
-        S.ui.pwNew = '';
-        // Set, but not signed in (the demo): sign in with the new password.
-        if (session === 'out') return ((S.ui.auth = 'reset-done'), render());
+        // The demo's reset page has no link behind it: the password is set, but nobody is signed in.
+        if (MODE.can.fakeEmailLinks) return ((S.ui.auth = 'reset-done'), (S.ui.pwNew = ''), render());
         // The link worked once: a reload must not show it again.
         history.replaceState(null, '', location.pathname + location.search);
         S.ui.reset = null;
+        S.ui.pwNew = '';
         if (session === 'in') return enterApp('Password updated. You are signed in.');
         beginOnboarding();
         render();
         toast('Password updated. You are signed in.');
       },
-      err => {
+      refused(err => {
         S.ui.errors = { reset: err.message };
         render();
-      },
+      }),
     ),
   );
 };
@@ -2481,8 +2480,8 @@ A.onbNext = el => {
 };
 /* Backend mode: the signed-in User has no Workspace to show, so leaving setup signs out. The demo goes back into its Workspace. */
 A.onbExit = () =>
-  leaveSetup().then(session => {
-    if (session === 'in') S.ui.auth = null;
+  leaveSetup().then(() => {
+    if (!MODE.can.askServer) S.ui.auth = null;
     else {
       S.ui.auth = 'login';
       S.ui.errors = {};
@@ -2492,18 +2491,20 @@ A.onbExit = () =>
 A.onbFinish = () => {
   const o = S.ui.onbData;
   // The server makes the Workspace and its Owner; the demo hands back how to name its own, in the same change.
-  loadingBtn('onb-finish', 0, () =>
+  const start = () =>
     startWorkspace(o).then(
       nameWorkspace => setUpWorkspace(o, nameWorkspace),
-      err => {
+      refused(err => {
         if (err.status === 422 && /URL/.test(err.message)) {
           S.ui.onb = 1;
           S.ui.errors = { url: err.message };
         } else toast(err.message, { kind: 'err' });
         render();
-      },
-    ),
-  );
+      }),
+    );
+  // Only the server takes its time: the demo sets up at once, without a loading button.
+  if (MODE.can.askServer) loadingBtn('onb-finish', 0, start);
+  else start();
 };
 /* The first Project from the chosen template, the default view and the invites of onboarding, then into the Project. */
 function setUpWorkspace(o, nameWorkspace = () => {}) {

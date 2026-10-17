@@ -1,9 +1,9 @@
 /* =====================================================================
    DEMO ACCOUNT: the localStorage demo's stand-ins for the account calls (core/store.js, onSession)
-   that backend mode's sync module answers from the server. There is no server: every call succeeds,
-   after the delay the demo has always faked for its button (none where it answered at once), and
-   does here what the demo does instead. Email links (acceptInvite, verifyEmail) open only in backend
-   mode, and nothing waits to be synced (flush), so the demo leaves those out.
+   that backend mode's sync module answers from the server. There is no server: every call succeeds
+   at once, in the same tick (the button's faked delay is MODE.wait, before the call), and does here
+   what the demo does instead. Email links (acceptInvite, verifyEmail) open only in backend mode, and
+   nothing waits to be synced (flush), so the demo leaves those out.
    ===================================================================== */
 import { BACKEND } from '../core/api.js';
 import { uid } from '../core/utils.js';
@@ -11,21 +11,22 @@ import { seed } from '../data/seed.js';
 import { D, S, onSession, save } from '../core/store.js';
 import { render } from '../shell/render.js';
 
-const after = (ms, value) => new Promise(resolve => setTimeout(() => resolve(value), ms));
-const now = value => Promise.resolve(value);
+/* Calls back at once, as the demo always answered: a Promise would call back a microtask later, after
+   the caller's next line, and an error thrown in the callback would end there instead of in the action. */
+const now = value => ({ then: ok => ok(value) });
 
 if (!BACKEND)
   onSession({
     // The demo's own Member, whatever was typed.
-    signIn: () => after(750, D().me),
+    signIn: () => now(D().me),
     signOut: () => now(),
-    signUp: () => after(800),
+    signUp: () => now(),
     resendVerification: () => now(),
-    forgotPassword: () => after(700),
+    forgotPassword: () => now(),
     resendResetLink: () => now(),
     // The demo's reset page has no token, and setting the password signs nobody in.
-    resetPassword: () => after(700, 'out'),
-    changePassword: () => after(800),
+    resetPassword: () => now(),
+    changePassword: () => now(),
     resendInvite: () => now(),
     deleteWorkspace: () => {
       S.data = seed();
@@ -44,8 +45,8 @@ if (!BACKEND)
           if (!D().workspaces.some(w => w.name === D().ws.name)) D().workspaces.push({ id: uid('w'), name: D().ws.name, c, plan: 'Free' });
         }
       }),
-    // The demo's Workspace is still there to go back to.
-    leaveSetup: () => now('in'),
+    // The demo's Workspace is still there to go back to: leaving setup changes nothing about the session.
+    leaveSetup: () => now(),
     // A User who just verified their address has no Workspace yet.
     resume: () => now('setup'),
   });
