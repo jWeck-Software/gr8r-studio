@@ -77,6 +77,7 @@ final readonly class MemberHandler implements CollectionHandler
         foreach ($this->em->getRepository(Project::class)->findBy(['workspace' => $actor->getWorkspace()]) as $project) {
             $project->dropMember($id);
         }
+        $this->invites->forget($member);
         $this->em->remove($member);
     }
 

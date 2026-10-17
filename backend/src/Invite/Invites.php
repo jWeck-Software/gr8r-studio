@@ -3,14 +3,15 @@
 namespace App\Invite;
 
 use App\Access\WorkspaceAccess;
-use App\Entity\Invite;
 use App\Entity\Member;
 use App\Entity\User;
 use App\Persistence\Transaction;
 use App\Repository\MemberRepository;
 use App\Security\PasswordPolicy;
+use App\Token\Purpose;
+use App\Token\TokenRefused;
+use App\Token\Tokens;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Clock\ClockInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
@@ -19,17 +20,15 @@ use Symfony\Component\Mime\Email;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
- * Invites: the link an invited Member gets by email, and accepting it. A link holds a random
- * single-use token; only its hash is stored, and it expires after a week.
+ * Invites: the link an invited Member gets by email, and accepting it. A link holds a one-time
+ * token (App\Token\Tokens, Purpose::Invite) that expires after a week.
  */
 final readonly class Invites
 {
-    private const string VALID_FOR = '+7 days';
-
     public function __construct(
         private EntityManagerInterface $em,
         private MailerInterface $mailer,
-        private ClockInterface $clock,
+        private Tokens $tokens,
         private Transaction $transaction,
         private LoggerInterface $logger,
         private UserPasswordHasherInterface $hasher,
@@ -97,7 +96,7 @@ final readonly class Invites
      */
     public function describe(string $token): array
     {
-        $member = $this->open($token)->getMember();
+        $member = $this->open($token);
 
         return [
             'email' => $member->getEmail(),
@@ -117,26 +116,36 @@ final readonly class Invites
     public function accept(string $token, string $name, string $password): User
     {
         return $this->transaction->run(function () use ($token, $name, $password): User {
-            $invite = $this->open($token);
-            $member = $invite->getMember();
+            $member = $this->open($token);
             $user = $this->user($member->getEmail(), $name, $password);
             $member->join($user, $name);
-            $this->em->remove($invite);
+            $this->tokens->redeem(Purpose::Invite, $token);
             $this->em->flush();
 
             return $user;
         });
     }
 
-    /** The open Invite whose link holds this token. */
-    private function open(string $token): Invite
+    /** A removed Member's Invite goes with them: the link they were sent stops working. */
+    public function forget(Member $member): void
     {
-        $invite = $this->em->getRepository(Invite::class)->findOneBy(['tokenHash' => hash('sha256', $token)]) ?? throw InviteRefused::unknown();
-        if ($invite->getExpiresAt() <= $this->clock->now()) {
-            throw InviteRefused::expired();
+        $this->tokens->revoke(Purpose::Invite, $member->getId());
+    }
+
+    /** The invited Member whose open Invite link holds this token. */
+    private function open(string $token): Member
+    {
+        try {
+            $id = $this->tokens->subjectOf(Purpose::Invite, $token);
+        } catch (TokenRefused $refused) {
+            throw $refused->expired ? InviteRefused::expired() : InviteRefused::unknown();
+        }
+        $member = $this->em->find(Member::class, $id);
+        if (null === $member || !$member->isInvited()) {
+            throw InviteRefused::unknown();
         }
 
-        return $invite;
+        return $member;
     }
 
     /**
@@ -172,17 +181,7 @@ final readonly class Invites
     /** A fresh link for the invited Member, as the email that brings it; an earlier link stops working. */
     private function issue(Member $actor, Member $invited): Email
     {
-        $token = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
-        $hash = hash('sha256', $token);
-        $expiresAt = $this->clock->now()->modify(self::VALID_FOR);
-        $invite = $this->em->find(Invite::class, $invited->getId());
-        if (null === $invite) {
-            $this->em->persist(new Invite($invited, $hash, $expiresAt));
-        } else {
-            $invite->renew($hash, $expiresAt);
-        }
-
-        return $this->email($actor, $invited, $token);
+        return $this->email($actor, $invited, $this->tokens->issue(Purpose::Invite, $invited->getId()));
     }
 
     private function email(Member $actor, Member $invited, string $token): Email

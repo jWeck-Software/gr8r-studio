@@ -122,12 +122,17 @@ health, login and the two `/api/invites/{token}` ones answers `401 {"error":"una
 - `src/Invite/Invites.php`: Invites, the one place that knows their links. `send()` (from the
   member handler) and `resend()` (`POST /api/members/{id}/invite`) issue a fresh link and email it
   as `<APP_FRONTEND_URL>/#join/<token>`; `describe()` and `accept()` serve the two
-  `/api/invites/{token}` endpoints. A token is 32 random bytes, stored only as its SHA-256 hash,
-  single-use and valid for 7 days; a new link replaces the old one, and removing the Member removes
-  the Invite. Accepting creates the User (password policy: `src/Security/PasswordPolicy.php`, as the
+  `/api/invites/{token}` endpoints. Its link's token (`src/Token/Tokens.php`) is valid for 7 days;
+  a new link replaces the old one, and removing the Member revokes it. Accepting creates the User (password policy: `src/Security/PasswordPolicy.php`, as the
   app's) or, when the address has a User already (a removed Member's User stays), requires that
   User's current password and keeps it; then the Member is active and the controller signs them in
   (`Security::login()`).
+- `src/Token/Tokens.php`: one-time links, the one place that issues and redeems their tokens, for
+  Invites and email verification (`src/Token/Purpose.php` says how long each works). A token is 32
+  random bytes as URL-safe base64, stored only as its SHA-256 hash (`one_time_token`); a subject
+  (a Member's or User's id) has one open link per purpose, so issuing another replaces it; redeeming
+  uses it up, and an expired one answers "expired", not "unknown". It never flushes: callers run it
+  inside their transaction.
 - `src/Persistence/Transaction.php`: the sync batch's transaction. Work deferred with
   `afterCommit()`, such as the Invite email of a sync put, runs only once the batch has committed,
   so a refused batch emails nobody. An email that cannot be sent then is logged, not an error: the
