@@ -67,22 +67,38 @@ php -d upload_max_filesize=30M -d post_max_size=32M bin/phpunit
 | `POST /api/signup`                 | no sign-in needed: `{name, email, password}` → `202`, also for an address that has an account (its owner is emailed that instead), so the answer tells nothing; emails a link `<APP_FRONTEND_URL>/#verify/<token>`; `422 invalid` (weak password, missing name, no email address)                                         |
 | `POST /api/verify-email`           | no sign-in needed: `{token}` → same body as login with `member: null` + session cookie; `404 not_found` (unknown, used or replaced link), `410 expired` (after 24 hours)                                                                                                                                                  |
 | `POST /api/verify-email/resend`    | no sign-in needed: `{email}` → `202` always; emails a new link (the old one stops working) only when the address has an unverified User                                                                                                                                                                                   |
+| `POST /api/password/forgot`        | no sign-in needed: `{email}` → `204` always; emails a link `<APP_FRONTEND_URL>/#reset/<token>` (valid 30 minutes, replaces an earlier one) only when the address has a User                                                                                                                                               |
+| `POST /api/password/reset`         | no sign-in needed: `{token, password}` → same body as login + session cookie; the User counts as verified, their other sessions end; `422 invalid` (weak password: the link keeps working), `404 not_found` (unknown, used or replaced link), `410 expired`                                                               |
 | `POST /api/workspaces`             | a signed-in User without a Workspace: `{name, url, c}` → `201`, same body as login with their new Owner Member; `422 invalid` (URL taken or no slug, colour), `409 conflict` (a Member of a Workspace already)                                                                                                            |
+| `DELETE /api/workspace`            | Owners: `{name}` (the Workspace's name, exactly) → `204`; deletes everything in it and its Files' content; its Members' Users stay without a Workspace (`403 no_workspace`); `422 invalid` (another name), `403 forbidden` (not an Owner)                                                                                 |
 | `POST /api/logout`                 | `204`, ends the session                                                                                                                                                                                                                                                                                                   |
 | `GET /api/me`                      | same body as login, or `401`; `403 no_workspace` when the User is no Member (any more)                                                                                                                                                                                                                                    |
+| `POST /api/me/password`            | `{current, new}` → `204`; this session stays signed in, the User's other sessions end and an open reset link stops working; `401 invalid_credentials` (wrong current password), `422 invalid` (weak new one)                                                                                                              |
 | `GET /api/bootstrap`               | `{data, prefs, views}` for the signed-in Member; `403 no_workspace` as for `/api/me`                                                                                                                                                                                                                                      |
 | `POST /api/sync`                   | `{"ops": [{op, type, id?, data?}]}` → `{"ok": true}`, `422` or `403`                                                                                                                                                                                                                                                      |
 | `GET /api/invites/{token}`         | no sign-in needed: `{email, name, workspace, account}` of an open Invite; `account` says the address has a User already; `404 not_found`, `410 expired`                                                                                                                                                                   |
 | `POST /api/invites/{token}/accept` | no sign-in needed: `{name, password}` → same body as login + session cookie; `404 not_found` (unknown, used or replaced link), `410 expired`, `422 invalid` (weak password), `401 invalid_credentials` (the address has a User and this is not its password), `409 conflict` (that User is a Member of another Workspace) |
 | `POST /api/members/{id}/invite`    | Owners and Admins send an invited Member's Invite again: `204`; `403`, `404`, `422` for a Member who joined                                                                                                                                                                                                               |
-| `POST /api/files`                  | multipart `file`, `id`, `project`, optional `task` → `201` with the File record (`type`, `size`, `by` and `at` are the server's); `422` for more than 25 MB, an id in use or a Task of another Project; `403` for Guests and Private projects one is not in                                                             |
-| `GET /api/files/{id}/content`      | the File's content with its name (`Content-Disposition: attachment`), its type by extension, `nosniff` and a sandboxing CSP; `404` for a File one doesn't see, as for one that doesn't exist                                                                                                                         |
-| `POST /api/files/{id}/copy`        | `{id}` → `201` with a copy of the File, content included, named like the frontend's Duplicate (`notes copy.txt`); `404`, `403`, `422` as for an upload                                                                                                                                                                  |
+| `POST /api/files`                  | multipart `file`, `id`, `project`, optional `task` → `201` with the File record (`type`, `size`, `by` and `at` are the server's); `422` for more than 25 MB, an id in use or a Task of another Project; `403` for Guests and Private projects one is not in                                                               |
+| `GET /api/files/{id}/content`      | the File's content with its name (`Content-Disposition: attachment`), its type by extension, `nosniff` and a sandboxing CSP; `404` for a File one doesn't see, as for one that doesn't exist                                                                                                                              |
+| `POST /api/files/{id}/copy`        | `{id}` → `201` with a copy of the File, content included, named like the frontend's Duplicate (`notes copy.txt`); `404`, `403`, `422` as for an upload                                                                                                                                                                    |
 
 Errors answer as `{"error": "<code>", "message": "…"}`; without a session every endpoint except
-health, login, signup, the two `/api/verify-email` ones and the two `/api/invites/{token}` ones
-answers `401 {"error":"unauthenticated"}`. Signing in with the right password before verifying the
-address is `403 {"error":"unverified"}`; a wrong one stays `401 invalid_credentials`.
+health, login, signup, the two `/api/verify-email` ones, the two `/api/password` ones and the two
+`/api/invites/{token}` ones answers `401 {"error":"unauthenticated"}`. Signing in with the right
+password before verifying the address is `403 {"error":"unverified"}`; a wrong one stays
+`401 invalid_credentials`.
+
+Rate limits (`src/Security/RateLimits.php`, limits in `config/packages/rate_limiter.yaml`): past one,
+the request answers `429 {"error":"too_many_requests"}` with `Retry-After` in seconds, before any
+password is checked. Signing in: 5 attempts a minute per email address and IP (a successful sign-in
+starts over); emails to one address (signup, a new verification link, a reset link, an Invite sent
+again): 3 a quarter hour; accepting one Invite link: 5 a minute; and every one of these endpoints, also
+verify-email, password reset and change: 20 a minute per IP. The dev environment allows 50 emails per
+address and 1000 requests per IP, so the browser checks, which all come from 127.0.0.1, fit; the
+sign-in limit is the same. The counts live in the `cache.rate_limiter` pool (the filesystem cache):
+`php bin/console cache:pool:clear cache.rate_limiter` starts them over; reseeding does not. Behind a
+reverse proxy, configure `trusted_proxies`, or every client counts as the proxy's IP.
 
 ## Where things live
 
@@ -133,8 +149,9 @@ address is `403 {"error":"unverified"}`; a wrong one stays `401 invalid_credenti
   app's) or, when the address has a User already (a removed Member's User stays), requires that
   User's current password and keeps it; then the Member is active and the controller signs them in
   (`Security::login()`).
-- `src/Account/Accounts.php`: signing up, verifying and starting a Workspace, the one place that
-  knows the rules of a new account. `signUp()` applies the password policy, then answers the same
+- `src/Account/Accounts.php`: signing up, verifying, passwords, and starting and deleting a
+  Workspace, the one place that knows the rules of an account. `signUp()` applies the password
+  policy, then answers the same
   for every address: a new one becomes an unverified User and gets a verification link; one with a
   verified User gets a "you already have an account" email and nothing changes; one with an
   unverified User starts over (the latest name and password, a link that replaces the earlier one),
@@ -146,13 +163,31 @@ address is `403 {"error":"unverified"}`; a wrong one stays `401 invalid_credenti
   address). `startWorkspace()` makes the Workspace with the User as its Owner Member, the default
   Teams (with ids of their own: Team ids are unique across Workspaces) and notification settings
   (`WorkspaceDefaults.php`, which the demo seed uses too); the frontend then syncs the first Project.
+  `forgotPassword()` emails a reset link (valid 30 minutes) only to an address with a User, and the
+  answer is the same either way (the email is sent in the request, so it takes longer for an
+  address with an account); `resetPassword()` checks the password policy before it uses the link
+  up, sets the password and verifies the User (the link reached the address; an open verification
+  link stops working), and the controller signs them in. `changePassword()` needs the current
+  password and revokes an open reset link. A new password ends the User's other sessions: Symfony
+  compares the hash kept in the session (`User::__serialize()`) on every request, and the session
+  the change was made in carries the new one. `deleteWorkspace()` is for Owners
+  (`WorkspaceAccess::whyNotDeleteWorkspace()`) who confirm with the Workspace's exact name, as the
+  app's dialog asks: the Workspace's row goes and everything in it with it (`ON DELETE CASCADE`), its
+  open Invite links are revoked, and its Files' content goes after the commit
+  (`Files::forgetWorkspace()`); its Members' Users stay, without a Workspace (`403 no_workspace`), and
+  may start one of their own.
   Emails go out after the commit (`Transaction::afterCommit()`); one that can't be sent is logged.
 - `src/Token/Tokens.php`: one-time links, the one place that issues and redeems their tokens, for
-  Invites and email verification (`src/Token/Purpose.php` says how long each works). A token is 32
+  Invites, email verification and password reset (`src/Token/Purpose.php` says how long each
+  works). A token is 32
   random bytes as URL-safe base64, stored only as its SHA-256 hash (`one_time_token`); a subject
   (a Member's or User's id) has one open link per purpose, so issuing another replaces it; redeeming
   uses it up, and an expired one answers "expired", not "unknown". It never flushes: callers run it
-  inside their transaction.
+  inside their transaction. Redeeming is one `DELETE … RETURNING`, so of two requests that redeem one
+  link at the same time the second waits for the first's transaction and then finds it used (404),
+  rather than verifying twice or failing on a new User's unique address; accepting an Invite redeems
+  before it creates the User. A signup or a new Workspace that loses a race for its address or URL
+  answers 202 or 422 "taken" as usual.
 - `src/Persistence/Transaction.php`: the sync batch's transaction. Work deferred with
   `afterCommit()`, such as the Invite email of a sync put, runs only once the batch has committed,
   so a refused batch emails nobody. An email that cannot be sent then is logged, not an error: the

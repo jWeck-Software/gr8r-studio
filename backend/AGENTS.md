@@ -90,6 +90,17 @@ Where this backend knowingly departs from the conventions above, and why:
   `#[MapRequestPayload]` binds the multipart body (`App\File\NewFile`), but a file over PHP's
   `upload_max_filesize` arrives as an upload error rather than a size, and both have to be refused
   the same way, next to the other rules of storing a File.
+- **Rate limits are one `kernel.request` listener (`App\Security\RateLimits`), not the firewall's
+  `login_throttling` plus per-controller checks, and it reads the email address from the JSON body
+  itself (`Request::toArray()`), not through `#[MapRequestPayload]`.** It runs after the router and
+  before the firewall, so a refused sign-in checks no password, and one map says which route counts
+  against which limiter for sign-in, signup, verification, Invites and passwords alike, all with the
+  same 429 body and an exact `Retry-After` (`login_throttling` answers through the failure handler
+  in whole minutes). The body is read before `json_login` and the controllers' payloads are.
+- **`App\Token\Tokens::redeem()` is one `DELETE … RETURNING` through DBAL, not `remove()` and a
+  flush.** Taking the link has to happen at once, inside the caller's transaction, so that a second
+  redemption of the same link waits for the first and then finds nothing; the ORM's remove runs only
+  at the flush, after the caller has acted on the link.
 - **Numbering Tasks locks the Project row (`FOR UPDATE`), not `symfony/lock`.** The lock has to last
   exactly as long as the sync transaction that stores the keys, and the database is what every
   server shares.

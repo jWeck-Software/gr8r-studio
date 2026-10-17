@@ -54,8 +54,13 @@ Signing up sends a verification link the same way (`#verify/<token>`); opening i
 in and continues into onboarding, whose last step creates their own Workspace, with them as its Owner,
 and syncs the first Project, its template Tasks and any invites. Until then signing in shows the verify
 screen, which sends a new link on request; a User signed in without a Workspace (one who exited setup,
-or a removed Member) is taken to onboarding, and exiting it signs out. Social sign-in, replaying
-onboarding, the workspace switcher and the demo reset are not available in this mode yet.
+or a removed Member) is taken to onboarding, and exiting it signs out. "Forgot password?" emails a
+link to `#reset/<token>`, valid for 30 minutes, whose new password signs in; changing the password
+in the settings signs out the User's other sessions. When an Owner deletes the Workspace (settings,
+typing its name), they land in onboarding, and everyone else in it does on their next sync or
+refresh. Signing in, signing up and the emailed links are rate-limited (a 429 shows its message; see
+`backend/README.md`). Social sign-in, replaying onboarding, the workspace switcher and the demo reset
+are not available in this mode yet.
 
 ## Project structure
 
