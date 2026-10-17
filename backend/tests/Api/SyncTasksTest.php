@@ -127,24 +127,45 @@ final class SyncTasksTest extends ApiTestCase
         self::assertSame('The Task\'s Project "pnothere" does not exist.', $body['message']);
     }
 
-    public function testTaskKeyMustBeUniqueWithinItsProject(): void
+    public function testANewTaskWhoseKeyIsTakenGetsTheProjectsNextKey(): void
     {
         $body = $this->sync([['op' => 'put', 'type' => 'tasks', 'id' => 'xk3j9q2', 'data' => self::newTask(['key' => 'WEB-103'])]]);
 
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame(['error' => 'invalid', 'op' => 0, 'message' => 'The Task key WEB-103 is already used in this Project.'], $body);
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame(['ok' => true, 'keys' => ['xk3j9q2' => 'WEB-201']], $body);
+        self::assertSame('WEB-201', $this->task('xk3j9q2')['key']);
+        self::assertSame('WEB-103', $this->task('t1')['key']);
     }
 
-    public function testTwoNewTasksInOneBatchCannotShareAKey(): void
+    public function testTwoMembersCreatingTasksFromTheSameSequenceBothKeepTheirTask(): void
+    {
+        $this->sync([['op' => 'put', 'type' => 'tasks', 'id' => 'xk3j9q2', 'data' => self::newTask(['key' => 'WEB-201'])]]);
+        $this->client->request('POST', '/api/logout');
+        $this->signIn('sarah@gr8rstudio.com');
+
+        $body = $this->sync([['op' => 'put', 'type' => 'tasks', 'id' => 'xa1', 'data' => self::newTask(['id' => 'xa1', 'key' => 'WEB-201', 'title' => 'Sarah\'s task'])]]);
+
+        self::assertSame(['ok' => true, 'keys' => ['xa1' => 'WEB-202']], $body);
+        self::assertSame(['WEB-201', 'WEB-202'], [$this->task('xk3j9q2')['key'], $this->task('xa1')['key']]);
+    }
+
+    public function testTwoNewTasksInOneBatchWithTheSameKeyAreBothSaved(): void
     {
         $body = $this->sync([
             ['op' => 'put', 'type' => 'tasks', 'id' => 'xk3j9q2', 'data' => self::newTask()],
             ['op' => 'put', 'type' => 'tasks', 'id' => 'xa1', 'data' => self::newTask(['id' => 'xa1'])],
         ]);
 
+        self::assertSame(['ok' => true, 'keys' => ['xa1' => 'WEB-201']], $body);
+        self::assertSame(['WEB-160', 'WEB-201'], [$this->task('xk3j9q2')['key'], $this->task('xa1')['key']]);
+    }
+
+    public function testAnExistingTaskCannotTakeAKeyInUse(): void
+    {
+        $body = $this->sync([['op' => 'put', 'type' => 'tasks', 'id' => 't4', 'data' => array_merge($this->task('t4'), ['key' => 'WEB-103'])]]);
+
         self::assertResponseStatusCodeSame(422);
-        self::assertSame(1, $body['op']);
-        self::assertNull($this->task('xk3j9q2'));
+        self::assertSame(['error' => 'invalid', 'op' => 0, 'message' => 'The Task key WEB-103 is already used in this Project.'], $body);
     }
 
     public function testTheSameKeyMayBeUsedInAnotherProject(): void

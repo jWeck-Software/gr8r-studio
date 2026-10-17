@@ -27,7 +27,7 @@ final readonly class ProjectHandler implements CollectionHandler
         return 'projects';
     }
 
-    public function put(Member $actor, string $id, array $data): void
+    public function put(Member $actor, string $id, array $data): array
     {
         $ws = $actor->getWorkspace();
         $fields = new Fields($data, 'Project');
@@ -49,7 +49,7 @@ final readonly class ProjectHandler implements CollectionHandler
             // Nothing but the star changed: anyone who sees the Project may star it, Guests included.
             $actor->star('projects', $id, $fav);
 
-            return;
+            return [];
         }
         $this->authorize($actor, $id, $project);
         if ($this->keyTaken($actor, $record['key'], $id)) {
@@ -61,6 +61,8 @@ final readonly class ProjectHandler implements CollectionHandler
         }
         $project->update($record);
         $actor->star('projects', $id, $fav);
+
+        return [];
     }
 
     public function delete(Member $actor, string $id): void

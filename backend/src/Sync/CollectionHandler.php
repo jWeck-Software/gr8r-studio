@@ -25,9 +25,14 @@ interface CollectionHandler
      *
      * @param array<string, mixed> $data the full record in the frontend's shape
      *
+     * @return array<string, array<string, mixed>> what the client has to learn because the server
+     *                                             stored something other than it sent, merged into
+     *                                             the response, e.g. `['keys' => ['t9' => 'WEB-207']]`;
+     *                                             usually empty
+     *
      * @throws SyncRejected
      */
-    public function put(Member $actor, string $id, array $data): void;
+    public function put(Member $actor, string $id, array $data): array;
 
     /**
      * Deletes the record with this id; an id the Member's Workspace doesn't have is a no-op.

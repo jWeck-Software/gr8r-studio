@@ -82,6 +82,11 @@ class Project
         return $this->workspace;
     }
 
+    public function getKey(): string
+    {
+        return $this->key;
+    }
+
     public function isPrivate(): bool
     {
         return true === $this->isPrivate;

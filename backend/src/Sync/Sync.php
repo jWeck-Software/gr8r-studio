@@ -41,18 +41,23 @@ final readonly class Sync
     /**
      * @param mixed $batch the decoded request body, `{"ops": [...]}`
      *
+     * @return array<string, array<string, mixed>> what the client has to learn about the records it
+     *                                             sent, such as `keys` of new Tasks the server
+     *                                             renumbered (ADR 0003); empty when all was stored as sent
+     *
      * @throws SyncRejected with the index of the refused op, if any; nothing has been written
      */
-    public function apply(Member $actor, mixed $batch): void
+    public function apply(Member $actor, mixed $batch): array
     {
         if (!\is_array($batch) || !\is_array($batch['ops'] ?? null) || !array_is_list($batch['ops'])) {
             throw SyncRejected::invalid('The body must be {"ops": [...]}.');
         }
 
-        $this->em->wrapInTransaction(function () use ($actor, $batch): void {
+        return $this->em->wrapInTransaction(function () use ($actor, $batch): array {
+            $reply = [];
             foreach ($batch['ops'] as $index => $op) {
                 try {
-                    $this->applyOne($actor, $op);
+                    $reply = array_replace_recursive($reply, $this->applyOne($actor, $op));
                     $this->em->flush();
                 } catch (SyncRejected $rejected) {
                     throw $rejected->atOp($index);
@@ -60,10 +65,13 @@ final readonly class Sync
                     throw SyncRejected::invalid('The record conflicts with an existing one.')->atOp($index);
                 }
             }
+
+            return $reply;
         });
     }
 
-    private function applyOne(Member $actor, mixed $op): void
+    /** @return array<string, array<string, mixed>> */
+    private function applyOne(Member $actor, mixed $op): array
     {
         if (!\is_array($op) || !\is_string($op['op'] ?? null) || !\is_string($op['type'] ?? null)) {
             throw SyncRejected::invalid('Every op needs an "op" and a "type".');
@@ -78,7 +86,7 @@ final readonly class Sync
             }
             $handler->set($actor, $op['data']);
 
-            return;
+            return [];
         }
         if (!\in_array($op['op'], ['put', 'delete'], true)) {
             throw SyncRejected::invalid(\sprintf('"%s" is not an op for %s; use put or delete.', $op['op'], $op['type']));
@@ -91,7 +99,7 @@ final readonly class Sync
         if ('delete' === $op['op']) {
             $handler->delete($actor, $id);
 
-            return;
+            return [];
         }
         $data = $op['data'] ?? null;
         if (!\is_array($data) || ([] !== $data && array_is_list($data))) {
@@ -100,6 +108,7 @@ final readonly class Sync
         if (($data['id'] ?? null) !== $id) {
             throw SyncRejected::invalid('The record\'s id must match the op\'s id.');
         }
-        $handler->put($actor, $id, $data);
+
+        return $handler->put($actor, $id, $data);
     }
 }

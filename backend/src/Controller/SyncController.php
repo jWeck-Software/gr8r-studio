@@ -15,11 +15,11 @@ final class SyncController
     public function __invoke(Request $request, Member $member, Sync $sync): JsonResponse
     {
         try {
-            $sync->apply($member, json_decode($request->getContent(), true));
+            $reply = $sync->apply($member, json_decode($request->getContent(), true));
         } catch (SyncRejected $rejected) {
             return new JsonResponse($rejected->body(), $rejected->status());
         }
 
-        return new JsonResponse(['ok' => true]);
+        return new JsonResponse(['ok' => true, ...$reply]);
     }
 }

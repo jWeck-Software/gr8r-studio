@@ -60,7 +60,7 @@ php bin/phpunit
 | `POST /api/logout`    | `204`, ends the session                                             |
 | `GET /api/me`         | same body as login, or `401`                                        |
 | `GET /api/bootstrap`  | `{data, prefs, views}` for the signed-in Member                     |
-| `POST /api/sync`      | `{"ops": [{op, type, id, data?}]}` → `{"ok": true}`, `422` or `403` |
+| `POST /api/sync`      | `{"ops": [{op, type, id?, data?}]}` → `{"ok": true}`, `422` or `403` |
 
 Errors answer as `{"error": "<code>", "message": "…"}`; without a session every endpoint except
 health and login answers `401 {"error":"unauthenticated"}`.
@@ -68,7 +68,11 @@ health and login answers `401 {"error":"unauthenticated"}`.
 ## Where things live
 
 - `src/Snapshot/Snapshot.php`: what a Member sees of their Workspace, in the frontend's shape.
-- `src/Sync/Sync.php`: applies a batch in one transaction. One handler per collection in
-  `src/Sync/Handler/`; a new synced collection is one new class implementing
-  `App\Sync\CollectionHandler`.
+- `src/Sync/Sync.php`: applies a batch in one transaction. One handler per collection or singleton
+  in `src/Sync/Handler/`; a new synced collection (`put`/`delete`) is one new class implementing
+  `App\Sync\CollectionHandler`, a new singleton (`set`, like `projOrder`) one implementing
+  `App\Sync\SingletonHandler`. When a new Task brings a key already taken in its Project, the
+  server renumbers it and the answer says so: `{"ok": true, "keys": {"<taskId>": "WEB-207"}}`.
+- `src/Access/ProjectAccess.php`: who sees and changes which Projects (Private projects, Guests);
+  used by the snapshot and by every handler.
 - `src/Demo/DemoSeed.php`: the demo Workspace, ported from `src/data/seed.js`.

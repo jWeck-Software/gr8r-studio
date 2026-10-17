@@ -6,6 +6,7 @@ use App\Access\ProjectAccess;
 use App\Entity\Member;
 use App\Entity\Project;
 use App\Entity\Task;
+use App\Entity\TaskKeys;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 
@@ -18,9 +19,6 @@ use Psr\Clock\ClockInterface;
  */
 final readonly class Snapshot
 {
-    /** The frontend numbers a Project's first new Task 201, after the seeded keys. */
-    private const int FIRST_SEQ = 200;
-
     public function __construct(
         private EntityManagerInterface $em,
         private ProjectAccess $access,
@@ -45,7 +43,7 @@ final readonly class Snapshot
                 'ws' => ['name' => $ws->getName(), 'url' => $ws->getUrl(), 'c' => $ws->getC(), 'brand' => $ws->isBrand()],
                 'me' => $member->getId(),
                 'members' => array_map(static fn (Member $m): array => $m->toRecord(), $members),
-                'projects' => self::inCreationOrder(self::withFavorites($member, 'projects', array_map(static fn (Project $p): array => [...$p->toRecord(), 'seq' => $seqs[$p->getId()] ?? self::FIRST_SEQ], $projects))),
+                'projects' => self::inCreationOrder(self::withFavorites($member, 'projects', array_map(static fn (Project $p): array => [...$p->toRecord(), 'seq' => $seqs[$p->getId()] ?? TaskKeys::FIRST_SEQ], $projects))),
                 'tasks' => self::inCreationOrder($tasks),
                 'projOrder' => array_values(array_intersect($ws->getProjOrder(), $visible)),
                 'comments' => [],
@@ -79,9 +77,8 @@ final readonly class Snapshot
     }
 
     /**
-     * The highest Task key number per Project id, archived Tasks included, and at least
-     * FIRST_SEQ. The frontend's nextKey() numbers the next Task seq + 1, so keys stay unique
-     * across reloads (Task keys are client-derived, ADR 0003).
+     * Each Project's Task key sequence by Project id (TaskKeys::seq): the frontend's nextKey()
+     * numbers the next Task seq + 1, so keys stay unique across reloads.
      *
      * @param list<array<string, mixed>> $tasks
      *
@@ -89,13 +86,12 @@ final readonly class Snapshot
      */
     private static function keySequences(array $tasks): array
     {
-        $seqs = [];
+        $keys = [];
         foreach ($tasks as $t) {
-            $number = (int) substr($t['key'], strrpos($t['key'], '-') + 1);
-            $seqs[$t['project']] = max($seqs[$t['project']] ?? self::FIRST_SEQ, $number);
+            $keys[$t['project']][] = $t['key'];
         }
 
-        return $seqs;
+        return array_map(TaskKeys::seq(...), $keys);
     }
 
     /**

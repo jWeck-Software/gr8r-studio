@@ -6,6 +6,7 @@ use App\Access\ProjectAccess;
 use App\Entity\Member;
 use App\Entity\Project;
 use App\Entity\Task;
+use App\Entity\TaskKeys;
 use App\Sync\CollectionHandler;
 use App\Sync\Fields;
 use App\Sync\Sync;
@@ -29,7 +30,7 @@ final readonly class TaskHandler implements CollectionHandler
         return 'tasks';
     }
 
-    public function put(Member $actor, string $id, array $data): void
+    public function put(Member $actor, string $id, array $data): array
     {
         $ws = $actor->getWorkspace();
         $fields = new Fields($data, 'Task');
@@ -56,14 +57,20 @@ final readonly class TaskHandler implements CollectionHandler
             // Nothing but the star changed: anyone who sees the Task may star it, Guests included.
             $actor->star('tasks', $id, $fav);
 
-            return;
+            return [];
         }
         if (null !== $task) {
             $this->authorize($actor, $task->getProject());
         }
         $this->authorize($actor, $project);
+        $reply = [];
         if ($this->keyTaken($project, $record['key'], $id)) {
-            throw SyncRejected::invalid(\sprintf('The Task key %s is already used in this Project.', $record['key']));
+            if (null !== $task) {
+                throw SyncRejected::invalid(\sprintf('The Task key %s is already used in this Project.', $record['key']));
+            }
+            // Two Members numbered a new Task from the same seq: the later one gets the next key (ADR 0003).
+            $record['key'] = TaskKeys::next($project->getKey(), $this->keysIn($project));
+            $reply = ['keys' => [$id => $record['key']]];
         }
 
         if (null === $task) {
@@ -72,6 +79,8 @@ final readonly class TaskHandler implements CollectionHandler
         }
         $task->update($record, $project, $assignee);
         $actor->star('tasks', $id, $fav);
+
+        return $reply;
     }
 
     public function delete(Member $actor, string $id): void
@@ -88,6 +97,14 @@ final readonly class TaskHandler implements CollectionHandler
         if (!$this->access->mayChange($actor, $project)) {
             throw SyncRejected::forbidden(\sprintf('You may not change the Tasks of the Project "%s".', $project->getId()));
         }
+    }
+
+    /** @return list<string> */
+    private function keysIn(Project $project): array
+    {
+        return array_column($this->em->createQuery('SELECT t.key FROM '.Task::class.' t WHERE t.project = :project')
+            ->setParameter('project', $project)
+            ->getScalarResult(), 'key');
     }
 
     private function keyTaken(Project $project, string $key, string $id): bool
