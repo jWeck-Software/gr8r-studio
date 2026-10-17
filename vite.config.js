@@ -52,7 +52,22 @@ function lucideSubset() {
   };
 }
 
-/* Two builds (see package.json):
+/* public/ and e2e/www/ are never emptied, so each build would leave the previous one's hashed files
+   in assets/ (still served). After writing, this removes from assets/ whatever the build just wrote
+   does not include; nothing outside assets/ is touched. */
+function pruneAssets() {
+  return {
+    name: 'prune-assets',
+    apply: 'build',
+    writeBundle(options, bundle) {
+      const dir = path.join(options.dir, 'assets');
+      if (!fs.existsSync(dir)) return;
+      for (const name of fs.readdirSync(dir)) if (!bundle['assets/' + name]) fs.rmSync(path.join(dir, name));
+    },
+  };
+}
+
+/* Three builds (see package.json):
    - `npm run build`: the app in backend mode (VITE_API_URL=api) into public/. `api` is relative, so
      the app reaches the API next to itself, under http://localhost/repos/gr8r-studio/public/ as at a
      vhost's root. Never empty public/: index.php and .htaccess live there.
@@ -63,7 +78,7 @@ function lucideSubset() {
 export default defineConfig(({ mode }) => ({
   root,
   base: './',
-  plugins: [lucideSubset()],
+  plugins: [lucideSubset(), pruneAssets()],
   build:
     mode === 'demo'
       ? { outDir: fileURLToPath(new URL('./dist', import.meta.url)), emptyOutDir: true }
