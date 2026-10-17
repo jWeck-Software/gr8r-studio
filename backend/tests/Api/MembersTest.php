@@ -54,6 +54,18 @@ final class MembersTest extends ApiTestCase
         self::assertSame(['Johnny Carter', 'Staff Engineer', '#23918A'], [$john['name'], $john['title'], $john['c']]);
     }
 
+    /** The name a Member gives themselves is the one they sign in with too. */
+    public function testJohnsNewNameIsTheOneHeIsSignedInWith(): void
+    {
+        $this->signIn('john@gr8rstudio.com');
+
+        $this->putMember('m3', ['name' => 'Johnny Carter']);
+
+        self::assertSame(['email' => 'john@gr8rstudio.com', 'name' => 'Johnny Carter'], $this->getJson('/api/me')['user']);
+        $this->client->request('POST', '/api/logout');
+        self::assertSame(['email' => 'john@gr8rstudio.com', 'name' => 'Johnny Carter'], $this->signIn('john@gr8rstudio.com')['user']);
+    }
+
     /** @return iterable<string, array{string, string, array<string, mixed>}> */
     public static function someoneElsesProfile(): iterable
     {

@@ -76,11 +76,15 @@ class Member
 
     /**
      * What a Member's put may change; the rest (email, status, last active, time zone) is the server's.
+     * A new name is their User's too, the one they sign in with.
      *
      * @param array{name: string, title: string, c: string, role: string, team: string} $changes
      */
     public function update(array $changes): void
     {
+        if ($this->name !== $changes['name']) {
+            $this->user?->rename($changes['name']);
+        }
         $this->name = $changes['name'];
         $this->title = $changes['title'];
         $this->c = $changes['c'];
