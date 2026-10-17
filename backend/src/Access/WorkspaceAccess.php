@@ -71,7 +71,7 @@ final readonly class WorkspaceAccess
             if ('Owner' !== $actor->getRole()) {
                 return self::OWNERS_ONLY;
             }
-            if ('Owner' === $stored['role'] && 1 === $this->owners($member)) {
+            if ('Owner' === $stored['role'] && 'active' === $stored['status'] && 1 === $this->owners($member)) {
                 return 'The Workspace needs at least one Owner.';
             }
         }

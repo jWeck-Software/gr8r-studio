@@ -126,6 +126,17 @@ final class MembersTest extends ApiTestCase
         self::assertSame(['error' => 'forbidden', 'op' => 0, 'message' => 'The Workspace needs at least one Owner.'], $body);
     }
 
+    public function testTheOwnerChangesTheRoleOfSomeoneInvitedAsOwner(): void
+    {
+        $this->signIn();
+        $this->sync([['op' => 'put', 'type' => 'members', 'id' => 'mq7x2', 'data' => self::invited(['role' => 'Owner'])]]);
+
+        $body = $this->putMember('mq7x2', ['role' => 'Admin']);
+
+        self::assertSame(['ok' => true], $body);
+        self::assertSame('Admin', $this->member('mq7x2')['role']);
+    }
+
     public function testAnOwnerHandsTheWorkspaceToSarahAndStepsDown(): void
     {
         $this->signIn();
