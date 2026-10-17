@@ -4,6 +4,7 @@ namespace App\Demo;
 
 use App\Entity\Activity;
 use App\Entity\Comment;
+use App\Entity\File;
 use App\Entity\Member;
 use App\Entity\Notification;
 use App\Entity\Project;
@@ -11,6 +12,7 @@ use App\Entity\Task;
 use App\Entity\Team;
 use App\Entity\User;
 use App\Entity\Workspace;
+use App\File\Files;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -19,7 +21,9 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  * The demo Workspace "Gr8r Studio", ported from the frontend's src/data/seed.js with
  * dates relative to today. Every active Member gets a User with the demo password.
  *
- * Not yet seeded (their tickets add them): Files, Events and Saved views.
+ * The demo Files come with placeholder content (PlaceholderContent): their sizes are the demo's.
+ *
+ * Not yet seeded (their tickets add them): Events and Saved views.
  */
 final class DemoSeed
 {
@@ -32,6 +36,7 @@ final class DemoSeed
         private readonly EntityManagerInterface $em,
         private readonly UserPasswordHasherInterface $hasher,
         private readonly ClockInterface $clock,
+        private readonly Files $files,
     ) {
     }
 
@@ -39,7 +44,7 @@ final class DemoSeed
     public function load(): void
     {
         $this->now = $this->clock->now();
-        $this->em->wrapInTransaction(function (): void {
+        $files = $this->em->wrapInTransaction(function (): array {
             $this->purge();
             $ws = new Workspace('Gr8r Studio', self::WORKSPACE_URL, '#1D1C1A', true, ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7']);
             $this->em->persist($ws);
@@ -50,12 +55,22 @@ final class DemoSeed
             $this->comments($ws, $tasks);
             $this->activity($ws);
             $this->notifications($ws, $members['m1']);
+
+            return $this->files($ws, $projects, $tasks);
         });
+        foreach ($files as $file) {
+            $this->files->putContent($file, PlaceholderContent::for($file->getName(), $file->toRecord()['type']));
+        }
         $this->em->clear();
     }
 
     private function purge(): void
     {
+        $gone = $this->em->createQuery('SELECT w.id FROM '.Workspace::class.' w WHERE w.url = :url OR w.id IN (SELECT IDENTITY(m.workspace) FROM '.Member::class.' m WHERE m.email LIKE :domain)')
+            ->execute(['url' => self::WORKSPACE_URL, 'domain' => '%@gr8rstudio.com']);
+        foreach (array_column($gone, 'id') as $id) {
+            $this->files->forgetWorkspace($id);
+        }
         // The demo Members' Workspace too, which may have been renamed since it was seeded.
         $this->em->createQuery('DELETE FROM '.Workspace::class.' w WHERE w.url = :url OR w.id IN (SELECT IDENTITY(m.workspace) FROM '.Member::class.' m WHERE m.email LIKE :domain)')
             ->execute(['url' => self::WORKSPACE_URL, 'domain' => '%@gr8rstudio.com']);
@@ -223,7 +238,6 @@ final class DemoSeed
                 'start' => null === $due ? null : $this->dOff($due - $len),
                 'labels' => $labels,
                 'subtasks' => [],
-                'attachments' => [],
                 'deps' => [],
                 'desc' => '',
                 'estimate' => $x['est'] ?? null,
@@ -248,10 +262,6 @@ final class DemoSeed
                 ['id' => 's2', 'title' => 'Tablet layout', 'done' => true],
                 ['id' => 's3', 'title' => 'Mobile layout', 'done' => true],
                 ['id' => 's4', 'title' => 'Annotate interactions', 'done' => false],
-            ],
-            'attachments' => [
-                ['id' => 'a1', 'name' => 'homepage-wireframes-v3.fig', 'type' => 'fig', 'size' => '4.2 MB', 'by' => 'm2', 'at' => $this->minsAgo(300)],
-                ['id' => 'a2', 'name' => 'nav-audit-findings.pdf', 'type' => 'pdf', 'size' => '860 KB', 'by' => 'm2', 'at' => $this->minsAgo(8000)],
             ],
         ]);
         $t('p1', 'Finalize navigation', 'progress', 'm3', 'high', 0, ['design', 'frontend'], [
@@ -358,6 +368,37 @@ final class DemoSeed
         }
 
         return $entities;
+    }
+
+    /**
+     * @param array<string, Project> $projects
+     * @param array<string, Task>    $tasks
+     *
+     * @return list<File>
+     */
+    private function files(Workspace $ws, array $projects, array $tasks): array
+    {
+        $rows = [
+            ['f1', 'p1', 'homepage-wireframes-v3.fig', '4.2 MB', 'm2', 300, 't3'],
+            ['f2', 'p1', 'nav-audit-findings.pdf', '860 KB', 'm2', 8000, 't3'],
+            ['f3', 'p1', 'brand-photography-set.zip', '128 MB', 'm4', 3000, null],
+            ['f4', 'p1', 'hero-exploration.png', '2.1 MB', 'm4', 1400, null],
+            ['f5', 'p1', 'content-inventory.xlsx', '310 KB', 'm5', 9000, null],
+            ['f6', 'p1', 'sitemap-v2.pdf', '540 KB', 'm1', 12000, null],
+            ['f7', 'p1', 'interview-notes.docx', '96 KB', 'm1', 20000, null],
+            ['f8', 'p1', 'analytics-events.json', '12 KB', 'm6', 700, null],
+            ['f9', 'p2', 'onboarding-flow.fig', '6.8 MB', 'm4', 500, null],
+            ['f10', 'p2', 'beta-feedback.xlsx', '220 KB', 'm1', 900, null],
+            ['f11', 'p3', 'campaign-brief.pdf', '1.1 MB', 'm5', 4000, null],
+            ['f12', 'p4', 'launch-plan.docx', '180 KB', 'm1', 6000, null],
+        ];
+        $files = [];
+        foreach ($rows as [$id, $project, $name, $size, $by, $minsAgo, $task]) {
+            $files[] = $file = new File($id, $ws, $projects[$project], null === $task ? null : $tasks[$task], $name, $size, $by, $this->minsAgo($minsAgo));
+            $this->em->persist($file);
+        }
+
+        return $files;
     }
 
     /** @param array<string, Task> $tasks */

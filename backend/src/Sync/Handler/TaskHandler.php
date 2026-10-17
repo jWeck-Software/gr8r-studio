@@ -9,6 +9,7 @@ use App\Entity\Member;
 use App\Entity\Project;
 use App\Entity\Task;
 use App\Entity\TaskKeys;
+use App\File\Files;
 use App\Notification\Notifier;
 use App\Sync\CollectionHandler;
 use App\Sync\Fields;
@@ -30,6 +31,7 @@ final readonly class TaskHandler implements CollectionHandler
         private Notifier $notifier,
         private CommentHandler $comments,
         private WorkspaceRecords $records,
+        private Files $files,
     ) {
     }
 
@@ -60,7 +62,7 @@ final readonly class TaskHandler implements CollectionHandler
         $task = $this->records->find(Task::class, $actor, $id);
         $deleted = null === $task ? $this->records->find(DeletedTask::class, $actor, $id) : null;
         $untouched = static fn (array $r): array => array_diff_key($r, ['updated' => 0]);
-        if (null !== $task && $this->access->sees($actor, $task->getProject()) && $untouched(self::record(new Fields($task->toRecord(), 'Task'))) === $untouched($record)) {
+        if (null !== $task && $this->access->sees($actor, $task->getProject()) && $untouched(self::record(new Fields([...$task->toRecord(), 'attachments' => []], 'Task'))) === $untouched($record)) {
             // Nothing but the star and the time changed: anyone who sees the Task may star it, and
             // commenting on it bumps `updated` (the frontend's logAct), Guests included.
             $task->touch($record['updated']);
@@ -116,15 +118,17 @@ final readonly class TaskHandler implements CollectionHandler
     }
 
     /**
-     * Removes the Task and its Comments, keeping what undo needs: the Task as it was, and the
-     * Comments as their authors'. Through the entity manager, not only by the database's cascade,
-     * so later ops of the same batch see them gone. Activity about the Task stays.
+     * Removes the Task, its Comments and its Files, keeping what undo needs: the Task as it was,
+     * and the Comments as their authors'. Through the entity manager, not only by the database's
+     * cascade, so later ops of the same batch see them gone and the Files' content goes too.
+     * Activity about the Task stays.
      */
     public function remove(Task $task): void
     {
         foreach ($this->em->getRepository(Comment::class)->findBy(['task' => $task]) as $comment) {
             $this->comments->remove($comment);
         }
+        $this->files->removeAllOf($task);
         $this->em->persist(DeletedTask::of($task));
         $this->em->remove($task);
     }
@@ -160,6 +164,9 @@ final readonly class TaskHandler implements CollectionHandler
             $s = new Fields($subtask, 'Subtask');
             $subtasks[] = ['id' => $s->nonEmptyString('id'), 'title' => $s->string('title'), 'done' => $s->bool('done')];
         }
+        // The Task's Attachments are its Files, which come and go by upload and the `files`
+        // collection: what a put says about them is checked for its shape and otherwise ignored.
+        $f->objectList('attachments');
         $deps = $f->stringList('deps');
         foreach ($deps as $dep) {
             if (1 !== preg_match(Sync::ID_FORMAT, $dep)) {
@@ -178,7 +185,6 @@ final readonly class TaskHandler implements CollectionHandler
             'start' => $f->nullableDate('start'),
             'labels' => $f->stringList('labels'),
             'subtasks' => $subtasks,
-            'attachments' => $f->objectList('attachments'),
             'deps' => $deps,
             'desc' => $f->string('desc'),
             'estimate' => $f->nullableString('estimate', 40),

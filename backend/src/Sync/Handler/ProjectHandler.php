@@ -6,6 +6,7 @@ use App\Access\ProjectAccess;
 use App\Entity\Member;
 use App\Entity\Project;
 use App\Entity\Task;
+use App\File\Files;
 use App\Sync\CollectionHandler;
 use App\Sync\Fields;
 use App\Sync\SyncRejected;
@@ -27,6 +28,7 @@ final readonly class ProjectHandler implements CollectionHandler
         private ProjectAccess $access,
         private TaskHandler $tasks,
         private WorkspaceRecords $records,
+        private Files $files,
     ) {
     }
 
@@ -81,7 +83,7 @@ final readonly class ProjectHandler implements CollectionHandler
     }
 
     /**
-     * Everything that lives inside a Project goes with it: its Tasks and their Comments. Removed
+     * Everything that lives inside a Project goes with it: its Tasks, their Comments and its Files. Removed
      * through the entity manager, not only by the database's cascade, so later ops of the same
      * batch see them gone.
      */
@@ -90,6 +92,7 @@ final readonly class ProjectHandler implements CollectionHandler
         foreach ($this->em->getRepository(Task::class)->findBy(['project' => $project]) as $task) {
             $this->tasks->remove($task);
         }
+        $this->files->removeAllOf($project);
     }
 
     private function authorize(Member $actor, string $id, ?Project $project): void

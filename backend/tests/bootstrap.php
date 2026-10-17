@@ -11,3 +11,7 @@ if (method_exists(Dotenv::class, 'bootEnv')) {
 if ($_SERVER['APP_DEBUG']) {
     umask(0000);
 }
+
+// Every test seeds the demo Files into a new Workspace's directory and is rolled back afterwards,
+// which leaves the blobs behind: start each run with an empty test storage.
+(new Symfony\Component\Filesystem\Filesystem())->remove(dirname(__DIR__).'/var/test-storage');

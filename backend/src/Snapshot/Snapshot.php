@@ -5,6 +5,7 @@ namespace App\Snapshot;
 use App\Access\ProjectAccess;
 use App\Entity\Activity;
 use App\Entity\Comment;
+use App\Entity\File;
 use App\Entity\Member;
 use App\Entity\Notification;
 use App\Entity\Project;
@@ -40,7 +41,9 @@ final readonly class Snapshot
         $projects = $this->access->visibleProjects($member);
         $visible = array_map(static fn (Project $p): string => $p->getId(), $projects);
         $visibleTasks = $this->em->getRepository(Task::class)->findBy([...$byWorkspace, 'project' => $visible]);
-        $tasks = self::withFavorites($member, 'tasks', array_map(static fn (Task $t): array => $t->toRecord(), $visibleTasks));
+        $files = $this->em->getRepository(File::class)->findBy(['project' => $projects], ['at' => 'DESC', 'id' => 'ASC']);
+        $attachments = self::attachments($files);
+        $tasks = self::withFavorites($member, 'tasks', array_map(static fn (Task $t): array => [...$t->toRecord(), 'attachments' => $attachments[$t->getId()] ?? []], $visibleTasks));
         $seqs = self::keySequences($tasks);
 
         return [
@@ -54,7 +57,7 @@ final readonly class Snapshot
                 'comments' => $this->comments($visibleTasks),
                 'activity' => $this->activity($member, $visible),
                 'notifs' => $this->notifs($member, $visible, array_map(static fn (Task $t): string => $t->getId(), $visibleTasks)),
-                'files' => [],
+                'files' => array_map(static fn (File $f): array => $f->toRecord(), $files),
                 'events' => [],
                 'savedViews' => [],
                 'teams' => self::inCreationOrder(array_map(static fn (Team $t): array => $t->toRecord(), $this->em->getRepository(Team::class)->findBy($byWorkspace))),
@@ -79,6 +82,26 @@ final readonly class Snapshot
         $comments = $this->em->getRepository(Comment::class)->findBy(['task' => $tasks], ['at' => 'ASC', 'id' => 'ASC']);
 
         return array_map(static fn (Comment $c): array => $c->toRecord(), $comments);
+    }
+
+    /**
+     * Each Task's Attachments by Task id: the Files attached to it, oldest first, as the frontend
+     * appends new ones.
+     *
+     * @param list<File> $files newest first
+     *
+     * @return array<string, list<array<string, mixed>>>
+     */
+    private static function attachments(array $files): array
+    {
+        $byTask = [];
+        foreach (array_reverse($files) as $file) {
+            if (null !== $file->getTask()) {
+                $byTask[$file->getTask()->getId()][] = $file->toAttachment();
+            }
+        }
+
+        return $byTask;
     }
 
     /**

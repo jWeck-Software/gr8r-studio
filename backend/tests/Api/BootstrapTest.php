@@ -102,9 +102,10 @@ final class BootstrapTest extends ApiTestCase
                 ['id' => 's3', 'title' => 'Mobile layout', 'done' => true],
                 ['id' => 's4', 'title' => 'Annotate interactions', 'done' => false],
             ],
+            // its Files, oldest first
             'attachments' => [
-                ['id' => 'a1', 'name' => 'homepage-wireframes-v3.fig', 'type' => 'fig', 'size' => '4.2 MB', 'by' => 'm2', 'at' => 1792220400000],
-                ['id' => 'a2', 'name' => 'nav-audit-findings.pdf', 'type' => 'pdf', 'size' => '860 KB', 'by' => 'm2', 'at' => 1791758400000],
+                ['id' => 'f2', 'name' => 'nav-audit-findings.pdf', 'type' => 'pdf', 'size' => '860 KB', 'by' => 'm2', 'at' => 1791758400000],
+                ['id' => 'f1', 'name' => 'homepage-wireframes-v3.fig', 'type' => 'fig', 'size' => '4.2 MB', 'by' => 'm2', 'at' => 1792220400000],
             ],
             'deps' => [],
             'desc' => '<p>Low-fidelity wireframes for the new homepage covering <b>desktop, tablet, and mobile</b> breakpoints.</p><ul><li>Hero with product value proposition</li><li>Customer logos and proof points</li><li>Feature overview linking to product pages</li></ul><p>Reference the navigation audit for IA decisions.</p>',
@@ -132,6 +133,17 @@ final class BootstrapTest extends ApiTestCase
         self::assertArrayNotHasKey('prevStatus', $byId['t4']);
     }
 
+    public function testTheDemoFilesComeNewestFirst(): void
+    {
+        $this->signIn();
+
+        $files = $this->getJson('/api/bootstrap')['data']['files'];
+
+        self::assertSame(['f1', 'f9', 'f8', 'f10', 'f4', 'f3', 'f11', 'f12', 'f2', 'f5', 'f6', 'f7'], array_column($files, 'id'));
+        self::assertSame(['id' => 'f1', 'project' => 'p1', 'name' => 'homepage-wireframes-v3.fig', 'type' => 'fig', 'size' => '4.2 MB', 'by' => 'm2', 'at' => 1792220400000, 'task' => 't3'], $files[0]);
+        self::assertSame(['id' => 'f3', 'project' => 'p1', 'name' => 'brand-photography-set.zip', 'type' => 'zip', 'size' => '128 MB', 'by' => 'm4', 'at' => 1792058400000, 'task' => null], $files[5]);
+    }
+
     public function testDemoOnlyCollectionsHaveFixedValues(): void
     {
         $this->signIn();
@@ -155,7 +167,7 @@ final class BootstrapTest extends ApiTestCase
 
         $data = $this->getJson('/api/bootstrap')['data'];
 
-        foreach (['files', 'events', 'savedViews', 'recentSearches'] as $collection) {
+        foreach (['events', 'savedViews', 'recentSearches'] as $collection) {
             self::assertSame([], $data[$collection], $collection);
         }
     }

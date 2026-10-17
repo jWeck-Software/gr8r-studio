@@ -6,6 +6,7 @@ use App\Entity\Member;
 use App\Entity\User;
 use App\Entity\Workspace;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /** Gale, a Guest the Owner added to Marketing Campaign (p3), reads it and changes nothing but her stars. */
@@ -190,6 +191,17 @@ final class GuestsTest extends ApiTestCase
     private function record(string $collection, string $id): ?array
     {
         return array_column($this->getJson('/api/bootstrap')['data'][$collection], null, 'id')[$id] ?? null;
+    }
+
+    public function testAGuestUploadsNoFiles(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'gr8r-upload');
+        file_put_contents($path, 'notes');
+        $this->client->request('POST', '/api/files', ['id' => 'fg1', 'project' => 'p3'], ['file' => new UploadedFile($path, 'notes.txt', test: true)]);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(['error' => 'forbidden', 'message' => 'You may not change the Files of the Project "p3".'], $this->lastJson());
+        self::assertNull($this->record('files', 'fg1'));
     }
 
     private function arrangeGuest(): void

@@ -6,8 +6,8 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * One piece of work inside a Project. Subtasks, labels, Dependencies and Attachments
- * are value-like and stored with the Task.
+ * One piece of work inside a Project. Subtasks, labels and Dependencies are value-like and
+ * stored with the Task; its Attachments are the Files attached to it (App\Entity\File).
  */
 #[ORM\Entity]
 #[ORM\UniqueConstraint(name: 'task_key_per_project', columns: ['project_id', 'key'])]
@@ -46,10 +46,6 @@ class Task
     /** @var list<array{id: string, title: string, done: bool}> */
     #[ORM\Column(type: Types::JSON, options: ['jsonb' => true])]
     private array $subtasks = [];
-
-    /** @var list<array<string, mixed>> */
-    #[ORM\Column(type: Types::JSON, options: ['jsonb' => true])]
-    private array $attachments = [];
 
     /** @var list<string> ids of the Tasks this Task depends on */
     #[ORM\Column(type: Types::JSON, options: ['jsonb' => true])]
@@ -132,7 +128,6 @@ class Task
         $this->start = null === $record['start'] ? null : new \DateTimeImmutable($record['start']);
         $this->labels = $record['labels'];
         $this->subtasks = $record['subtasks'];
-        $this->attachments = $record['attachments'];
         $this->deps = $record['deps'];
         $this->description = $record['desc'];
         $this->estimate = $record['estimate'];
@@ -157,7 +152,7 @@ class Task
         $this->updated = $updated;
     }
 
-    /** @return array<string, mixed> the Task in the frontend's shape */
+    /** @return array<string, mixed> the Task in the frontend's shape, without its `attachments` (Files) */
     public function toRecord(): array
     {
         $order = $this->sortOrder;
@@ -173,7 +168,6 @@ class Task
             'start' => $this->start?->format('Y-m-d'),
             'labels' => $this->labels,
             'subtasks' => $this->subtasks,
-            'attachments' => $this->attachments,
             'deps' => $this->deps,
             'desc' => $this->description,
             'estimate' => $this->estimate,
