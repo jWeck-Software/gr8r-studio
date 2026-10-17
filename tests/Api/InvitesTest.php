@@ -2,6 +2,7 @@
 
 namespace App\Tests\Api;
 
+use App\Account\WorkspaceDefaults;
 use App\Entity\Member;
 use App\Entity\User;
 use App\Entity\Workspace;
@@ -63,6 +64,18 @@ final class InvitesTest extends ApiTestCase
         self::assertSame(['Ana Lopez', 'active', 'Member', 'design'], [$ana['name'], $ana['status'], $ana['role'], $ana['team']]);
         $this->client->request('POST', '/api/logout');
         self::assertSame('mq7x2', $this->signIn('ana@gr8rstudio.com', 'ana-password-1')['member']);
+    }
+
+    /** Ana starts with the notification settings every new Member has, until she changes them. */
+    public function testAnaStartsWithTheDefaultNotificationSettings(): void
+    {
+        $this->signIn();
+        $this->invite();
+        $token = $this->token();
+        $this->client->request('POST', '/api/logout');
+        $this->accept($token, 'Ana Lopez', 'ana-password-1');
+
+        self::assertSame(WorkspaceDefaults::NOTIF_PREFS, $this->getJson('/api/bootstrap')['data']['notifPrefs']);
     }
 
     /** What the page behind the link shows before Ana joins: who is invited where, and that she has no account yet. */

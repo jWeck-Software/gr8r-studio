@@ -3,6 +3,7 @@
 namespace App\Snapshot;
 
 use App\Access\ProjectAccess;
+use App\Account\WorkspaceDefaults;
 use App\Entity\Activity;
 use App\Entity\Comment;
 use App\Entity\Event;
@@ -64,7 +65,8 @@ final readonly class Snapshot
                 'savedViews' => self::inCreationOrder(array_map(static fn (SavedView $v): array => $v->toRecord(), $this->em->getRepository(SavedView::class)->findBy(['project' => $projects]))),
                 'teams' => self::inCreationOrder(array_map(static fn (Team $t): array => $t->toRecord(), $this->em->getRepository(Team::class)->findBy($byWorkspace))),
                 'recentSearches' => $member->personal('recentSearches') ?? [],
-                'notifPrefs' => (object) ($member->personal('notifPrefs') ?? []),
+                // Until the Member changes them; an invited Member has none stored.
+                'notifPrefs' => (object) ($member->personal('notifPrefs') ?? WorkspaceDefaults::NOTIF_PREFS),
                 ...$this->demoOnly(),
             ],
             'prefs' => (object) ($member->personal('prefs') ?? []),
