@@ -76,7 +76,9 @@ health and login answers `401 {"error":"unauthenticated"}`.
 - `src/Sync/Handler/CommentHandler.php`: a new Comment is the signed-in Member's whatever the
   client sends; on someone else's Comment a Member may only add or remove their own id in the
   Reactions (`re`), and only the author deletes it. Anyone who sees the Task may comment, Guests
-  included. Deleting a Task or a Project deletes its Comments.
+  included. Deleting a Task or a Project deletes its Comments. A deleted Comment leaves a
+  `DeletedComment` behind (never in bootstrap): when undo puts the same id again, the Comment comes
+  back as its author's, for a Member who sees its Task, instead of becoming a new one by whoever undid.
 - `src/Sync/Handler/ActivityHandler.php`: Activity is append-only. A new entry is the signed-in
   Member's; putting an id that exists changes nothing, and `delete` is accepted and ignored (undo
   in the frontend restores S.data as it was and so sends deletes). Entries about a deleted Task or

@@ -111,6 +111,26 @@ final class NotificationsTest extends ApiTestCase
         self::assertSame([], $this->notifs());
     }
 
+    /**
+     * Sarah deletes her Task t3 and undoes it: Sarah's c2 on it, which mentions the Owner, comes
+     * back without notifying him again.
+     */
+    public function testUndoingADeletionNotifiesNobodyOfTheCommentsItBringsBack(): void
+    {
+        $this->signIn(self::OWNER_EMAIL);
+        $before = $this->getJson('/api/bootstrap')['data']['notifs'];
+        $this->switchTo('sarah@gr8rstudio.com');
+        $data = $this->getJson('/api/bootstrap')['data'];
+        $comments = array_values(array_filter($data['comments'], static fn (array $c): bool => 't3' === $c['task']));
+        $this->sync([['op' => 'delete', 'type' => 'tasks', 'id' => 't3'], ...array_map(static fn (array $c): array => ['op' => 'delete', 'type' => 'comments', 'id' => $c['id']], $comments)]);
+
+        $this->sync([['op' => 'put', 'type' => 'tasks', 'id' => 't3', 'data' => array_column($data['tasks'], null, 'id')['t3']], ...array_map(static fn (array $c): array => ['op' => 'put', 'type' => 'comments', 'id' => $c['id'], 'data' => $c], $comments)]);
+
+        self::assertResponseStatusCodeSame(200);
+        $this->switchTo(self::OWNER_EMAIL);
+        self::assertSame($before, $this->getJson('/api/bootstrap')['data']['notifs']);
+    }
+
     public function testTheRecipientMarksANotificationReadAndUnread(): void
     {
         $notif = $this->notifySarah();

@@ -4,6 +4,7 @@ namespace App\Sync\Handler;
 
 use App\Access\ProjectAccess;
 use App\Entity\Comment;
+use App\Entity\DeletedComment;
 use App\Entity\Member;
 use App\Entity\Task;
 use App\Notification\Notifier;
@@ -46,8 +47,13 @@ final readonly class CommentHandler implements CollectionHandler
         $this->assertSees($actor, $task);
 
         $comment = $this->em->find(Comment::class, $id);
-        if (null !== $comment && $comment->getWorkspace() !== $ws) {
+        $deleted = null === $comment ? $this->em->find(DeletedComment::class, $id) : null;
+        if (null !== ($comment ?? $deleted) && ($comment ?? $deleted)->getWorkspace() !== $ws) {
             throw SyncRejected::invalid(\sprintf('The id "%s" is already used.', $id));
+        }
+        if (null !== $deleted) {
+            // Undo: the Comment comes back as its author's, then the put applies as to any Comment.
+            $comment = $this->restore($actor, $deleted);
         }
         if (null === $comment) {
             $comment = new Comment($id, $ws);
@@ -75,7 +81,32 @@ final readonly class CommentHandler implements CollectionHandler
         if ($comment->getBy() !== $actor->getId()) {
             throw SyncRejected::forbidden(\sprintf('Only its author may delete the Comment "%s".', $id));
         }
+        $this->remove($comment);
+    }
+
+    /**
+     * Removes the Comment and keeps what undo needs to put it back as its author's. Through the
+     * entity manager, so later ops of the same batch see it gone.
+     */
+    public function remove(Comment $comment): void
+    {
+        $this->em->persist(DeletedComment::of($comment));
         $this->em->remove($comment);
+    }
+
+    /** Puts a deleted Comment back as it was, its author included, for a Member who sees its Task. */
+    private function restore(Member $actor, DeletedComment $deleted): Comment
+    {
+        $task = $this->em->find(Task::class, $deleted->getTask());
+        if (null === $task || $task->getWorkspace() !== $actor->getWorkspace()) {
+            throw SyncRejected::invalid(\sprintf('The Comment\'s Task "%s" does not exist.', $deleted->getTask()));
+        }
+        $this->assertSees($actor, $task);
+        $comment = $deleted->restore($task);
+        $this->em->remove($deleted);
+        $this->em->persist($comment);
+
+        return $comment;
     }
 
     /**

@@ -248,6 +248,52 @@ final class CommentsTest extends ApiTestCase
     }
 
     /**
+     * Undo puts back the Task and its Comments as they were; each Comment stays its author's.
+     *
+     * @param array<string, mixed> $deletion
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('deletionsOfATaskOrItsProject')]
+    public function testUndoingTheDeletionOfATaskOrItsProjectKeepsWhoWroteItsComments(array $deletion): void
+    {
+        $this->signIn();
+        $data = $this->getJson('/api/bootstrap')['data'];
+        $comments = array_values(array_filter($data['comments'], static fn (array $c): bool => 't3' === $c['task']));
+        $restore = array_map(static fn (array $c): array => ['op' => 'put', 'type' => 'comments', 'id' => $c['id'], 'data' => $c], $comments);
+        $this->sync([$deletion, ...array_map(static fn (array $c): array => ['op' => 'delete', 'type' => 'comments', 'id' => $c['id']], $comments)]);
+        $project = array_column($data['projects'], null, 'id')['p1'];
+        unset($project['seq']);
+        $p1Tasks = array_values(array_filter($data['tasks'], static fn (array $t): bool => 'p1' === $t['project']));
+
+        $body = $this->sync([
+            ...('projects' === $deletion['type'] ? [['op' => 'put', 'type' => 'projects', 'id' => 'p1', 'data' => $project]] : []),
+            ...array_map(static fn (array $t): array => ['op' => 'put', 'type' => 'tasks', 'id' => $t['id'], 'data' => $t], 'projects' === $deletion['type'] ? $p1Tasks : [array_column($p1Tasks, null, 'id')['t3']]),
+            ...$restore,
+        ]);
+
+        self::assertSame(['ok' => true], $body);
+        $restored = array_values(array_filter($this->getJson('/api/bootstrap')['data']['comments'], static fn (array $c): bool => 't3' === $c['task']));
+        self::assertSame([['c1', 'm4'], ['c2', 'm2'], ['c3', 'm3']], array_map(static fn (array $c): array => [$c['id'], $c['by']], $restored));
+        self::assertRecord($comments, $restored);
+    }
+
+    /** Customer Portal (p6) is Private to Marcus and Lena; the Owner can't bring back a Comment on it. */
+    public function testOnlyAMemberWhoSeesItsTaskCanBringBackADeletedComment(): void
+    {
+        $this->signIn('marcus@gr8rstudio.com');
+        $this->sync([['op' => 'put', 'type' => 'comments', 'id' => 'cx7k2m9', 'data' => self::newComment(['task' => 't49', 'text' => 'Contract review is done.'])]]);
+        $this->sync([['op' => 'delete', 'type' => 'comments', 'id' => 'cx7k2m9']]);
+        $this->switchTo(self::OWNER_EMAIL);
+
+        $body = $this->sync([['op' => 'put', 'type' => 'comments', 'id' => 'cx7k2m9', 'data' => self::newComment(['by' => 'm6', 'text' => 'Contract review is done.'])]]);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(['error' => 'forbidden', 'op' => 0, 'message' => 'You may not comment on the Task "t49".'], $body);
+        self::assertNull($this->comment('cx7k2m9'));
+        $this->switchTo('lena@gr8rstudio.com');
+        self::assertNull($this->comment('cx7k2m9'));
+    }
+
+    /**
      * A new Comment as the frontend's postComment() sends it.
      *
      * @param array<string, mixed> $changes

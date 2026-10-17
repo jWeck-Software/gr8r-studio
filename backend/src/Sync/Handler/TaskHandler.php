@@ -25,6 +25,7 @@ final readonly class TaskHandler implements CollectionHandler
         private EntityManagerInterface $em,
         private ProjectAccess $access,
         private Notifier $notifier,
+        private CommentHandler $comments,
     ) {
     }
 
@@ -102,13 +103,14 @@ final readonly class TaskHandler implements CollectionHandler
     }
 
     /**
-     * Removes the Task and its Comments. Through the entity manager, not only by the database's
-     * cascade, so later ops of the same batch see them gone. Activity about the Task stays.
+     * Removes the Task and its Comments, which undo can put back as their authors'. Through the
+     * entity manager, not only by the database's cascade, so later ops of the same batch see them
+     * gone. Activity about the Task stays.
      */
     public function remove(Task $task): void
     {
         foreach ($this->em->getRepository(Comment::class)->findBy(['task' => $task]) as $comment) {
-            $this->em->remove($comment);
+            $this->comments->remove($comment);
         }
         $this->em->remove($task);
     }
