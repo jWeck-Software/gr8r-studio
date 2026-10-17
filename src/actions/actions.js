@@ -35,6 +35,7 @@ import { strengthMeter } from '../pages/settings.js';
 import { BACKEND, api } from '../core/api.js';
 import { attachmentOf, removeFile } from '../core/files.js';
 import { slug } from '../core/slug.js';
+import { weakPassword } from '../core/password.js';
 
 export const A = {},
   IN = {},
@@ -2071,7 +2072,8 @@ A.savePassword = () => {
     cf = $('#pw-conf').value;
   S.ui.pwDone = false;
   if (!cur) e.pwCur = 'Enter your current password';
-  if (nw.length < 10 || !/[0-9\W]/.test(nw)) e.pwNew = 'Use at least 10 characters, including a number or symbol';
+  const weakNew = weakPassword(nw);
+  if (weakNew) e.pwNew = weakNew;
   if (nw !== cf) e.pwConf = "Passwords don't match";
   if (Object.keys(e).length) {
     render();
@@ -2217,7 +2219,7 @@ A.doJoin = () => {
   j.name = nm;
   if (!nm) e.name = 'Enter your name';
   if (!pw) e.pw = j.invite.account ? 'Enter your password' : 'Choose a password';
-  else if (!j.invite.account && (pw.length < 10 || !/[0-9\W]/.test(pw))) e.pw = 'Use at least 10 characters, including a number or symbol';
+  else if (!j.invite.account && weakPassword(pw)) e.pw = weakPassword(pw);
   if (Object.keys(e).length) {
     render();
     (e.name ? $('#j-name') : $('#j-pw'))?.focus();
@@ -2260,7 +2262,7 @@ A.doSignup = () => {
   S.ui.af.email = em;
   if (!nm) e.name = 'Enter your name';
   if (!EMAIL_RE.test(em)) e.email = 'Enter a valid work email';
-  if (pw.length < 10 || !/[0-9\W]/.test(pw)) e.pw = 'Use at least 10 characters, including a number or symbol';
+  if (weakPassword(pw)) e.pw = weakPassword(pw);
   if (Object.keys(e).length) {
     render();
     $('#s-email').value = em;
@@ -2317,7 +2319,7 @@ A.doReset = () => {
   const a = $('#r-pw').value,
     b = $('#r-pw2').value;
   const e = (S.ui.errors = {});
-  if (a.length < 10 || !/[0-9\W]/.test(a)) e.pw = 'Use at least 10 characters, including a number or symbol';
+  if (weakPassword(a)) e.pw = weakPassword(a);
   if (a !== b) e.pw2 = "Passwords don't match";
   if (Object.keys(e).length) {
     render();
