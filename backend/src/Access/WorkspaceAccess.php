@@ -82,11 +82,11 @@ final readonly class WorkspaceAccess
         return null;
     }
 
-    /** How many Owners the Member's Workspace has. */
+    /** How many Owners who can sign in the Member's Workspace has; one who is invited can't yet. */
     private function owners(Member $member): int
     {
-        return (int) $this->em->createQuery('SELECT COUNT(m.id) FROM '.Member::class.' m WHERE m.workspace = :ws AND m.role = :owner')
-            ->setParameters(['ws' => $member->getWorkspace(), 'owner' => 'Owner'])
+        return (int) $this->em->createQuery('SELECT COUNT(m.id) FROM '.Member::class.' m WHERE m.workspace = :ws AND m.role = :owner AND m.status = :active')
+            ->setParameters(['ws' => $member->getWorkspace(), 'owner' => 'Owner', 'active' => 'active'])
             ->getSingleScalarResult();
     }
 }

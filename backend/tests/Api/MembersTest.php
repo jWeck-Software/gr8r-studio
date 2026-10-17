@@ -113,6 +113,19 @@ final class MembersTest extends ApiTestCase
         self::assertSame(['error' => 'forbidden', 'op' => 0, 'message' => 'The Workspace needs at least one Owner.'], $body);
     }
 
+    /** Someone invited as an Owner cannot sign in yet: the Workspace would be left without an Owner who can. */
+    public function testAnInvitedOwnerDoesNotLetTheOnlyOwnerStepDown(): void
+    {
+        $this->signIn();
+        $this->sync([['op' => 'put', 'type' => 'members', 'id' => 'mq7x2', 'data' => self::invited(['role' => 'Owner'])]]);
+        self::assertResponseStatusCodeSame(200);
+
+        $body = $this->putMember('m1', ['role' => 'Admin']);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(['error' => 'forbidden', 'op' => 0, 'message' => 'The Workspace needs at least one Owner.'], $body);
+    }
+
     public function testAnOwnerHandsTheWorkspaceToSarahAndStepsDown(): void
     {
         $this->signIn();
