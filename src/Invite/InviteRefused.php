@@ -2,17 +2,11 @@
 
 namespace App\Invite;
 
-/** What the server refuses about an Invite, such as a link that does not lead into the Workspace (any more), with the reason to show. */
-final class InviteRefused extends \RuntimeException
-{
-    private function __construct(
-        public readonly int $status,
-        public readonly string $error,
-        string $message,
-    ) {
-        parent::__construct($message);
-    }
+use App\Http\Refused;
 
+/** What the server refuses about an Invite, such as a link that does not lead into the Workspace (any more), with the reason to show. */
+final class InviteRefused extends Refused
+{
     /** No open Invite has this token: it never existed, was accepted already or was replaced by a newer one. */
     public static function unknown(): self
     {
@@ -59,11 +53,5 @@ final class InviteRefused extends \RuntimeException
     public static function inAnotherWorkspace(string $email): self
     {
         return new self(409, 'conflict', \sprintf('%s is a Member of another Workspace already, and an account belongs to one Workspace for now.', $email));
-    }
-
-    /** @return array{error: string, message: string} */
-    public function body(): array
-    {
-        return ['error' => $this->error, 'message' => $this->getMessage()];
     }
 }

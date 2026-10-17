@@ -2,17 +2,11 @@
 
 namespace App\Account;
 
-/** What the server refuses about signing up, verifying, passwords, or starting or deleting a Workspace, with the reason to show. */
-final class AccountRefused extends \RuntimeException
-{
-    private function __construct(
-        public readonly int $status,
-        public readonly string $error,
-        string $message,
-    ) {
-        parent::__construct($message);
-    }
+use App\Http\Refused;
 
+/** What the server refuses about signing up, verifying, passwords, or starting or deleting a Workspace, with the reason to show. */
+final class AccountRefused extends Refused
+{
     /** No open verification link has this token: it never existed, was used already or was replaced by a newer one. */
     public static function unknownLink(): self
     {
@@ -71,11 +65,5 @@ final class AccountRefused extends \RuntimeException
     public static function hasWorkspace(): self
     {
         return new self(409, 'conflict', 'You are a Member of a Workspace already, and an account belongs to one Workspace for now.');
-    }
-
-    /** @return array{error: string, message: string} */
-    public function body(): array
-    {
-        return ['error' => $this->error, 'message' => $this->getMessage()];
     }
 }

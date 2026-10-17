@@ -2,7 +2,6 @@
 
 namespace App\Controller;
 
-use App\Account\AccountRefused;
 use App\Account\Accounts;
 use App\Account\ChangePassword;
 use App\Account\DeleteWorkspace;
@@ -28,11 +27,7 @@ final class AccountController extends AbstractController
     #[Route('/api/signup', name: 'api_signup', methods: ['POST'])]
     public function signUp(#[MapRequestPayload(acceptFormat: 'json')] SignUp $body, Accounts $accounts): Response
     {
-        try {
-            $accounts->signUp(trim($body->name), $body->email, $body->password);
-        } catch (AccountRefused $refused) {
-            return new JsonResponse($refused->body(), $refused->status);
-        }
+        $accounts->signUp(trim($body->name), $body->email, $body->password);
 
         return new Response(status: 202);
     }
@@ -59,11 +54,7 @@ final class AccountController extends AbstractController
     #[Route('/api/password/reset', name: 'api_password_reset', methods: ['POST'])]
     public function resetPassword(#[MapRequestPayload(acceptFormat: 'json')] ResetPassword $body, Accounts $accounts, Security $security, SignedIn $signedIn): Response
     {
-        try {
-            $user = $accounts->resetPassword($body->token, $body->password);
-        } catch (AccountRefused $refused) {
-            return new JsonResponse($refused->body(), $refused->status);
-        }
+        $user = $accounts->resetPassword($body->token, $body->password);
 
         return $security->login($user, 'json_login', 'api') ?? new JsonResponse($signedIn->body($user));
     }
@@ -72,11 +63,7 @@ final class AccountController extends AbstractController
     #[Route('/api/me/password', name: 'api_me_password', methods: ['POST'])]
     public function changePassword(#[CurrentUser] User $user, #[MapRequestPayload(acceptFormat: 'json')] ChangePassword $body, Accounts $accounts): Response
     {
-        try {
-            $accounts->changePassword($user, $body->current, $body->new);
-        } catch (AccountRefused $refused) {
-            return new JsonResponse($refused->body(), $refused->status);
-        }
+        $accounts->changePassword($user, $body->current, $body->new);
 
         return new Response(status: 204);
     }
@@ -84,11 +71,7 @@ final class AccountController extends AbstractController
     #[Route('/api/workspace', name: 'api_workspace_delete', methods: ['DELETE'])]
     public function deleteWorkspace(Member $member, #[MapRequestPayload(acceptFormat: 'json')] DeleteWorkspace $body, Accounts $accounts): Response
     {
-        try {
-            $accounts->deleteWorkspace($member, $body->name);
-        } catch (AccountRefused $refused) {
-            return new JsonResponse($refused->body(), $refused->status);
-        }
+        $accounts->deleteWorkspace($member, $body->name);
 
         return new Response(status: 204);
     }
@@ -97,11 +80,7 @@ final class AccountController extends AbstractController
     #[Route('/api/verify-email', name: 'api_verify_email', methods: ['POST'])]
     public function verify(#[MapRequestPayload(acceptFormat: 'json')] VerifyEmail $body, Accounts $accounts, Security $security, SignedIn $signedIn): Response
     {
-        try {
-            $user = $accounts->verify($body->token);
-        } catch (AccountRefused $refused) {
-            return new JsonResponse($refused->body(), $refused->status);
-        }
+        $user = $accounts->verify($body->token);
 
         return $security->login($user, 'json_login', 'api') ?? new JsonResponse($signedIn->body($user));
     }
@@ -113,11 +92,7 @@ final class AccountController extends AbstractController
     #[Route('/api/workspaces', name: 'api_workspaces', methods: ['POST'])]
     public function startWorkspace(#[CurrentUser] User $user, #[MapRequestPayload(acceptFormat: 'json')] StartWorkspace $body, Accounts $accounts, SignedIn $signedIn): JsonResponse
     {
-        try {
-            $accounts->startWorkspace($user, trim($body->name), $body->url, $body->c);
-        } catch (AccountRefused $refused) {
-            return new JsonResponse($refused->body(), $refused->status);
-        }
+        $accounts->startWorkspace($user, trim($body->name), $body->url, $body->c);
 
         return new JsonResponse($signedIn->body($user), 201);
     }

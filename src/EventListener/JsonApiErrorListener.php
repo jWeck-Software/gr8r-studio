@@ -2,6 +2,7 @@
 
 namespace App\EventListener;
 
+use App\Http\Refused;
 use App\Security\NoWorkspace;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
@@ -14,7 +15,8 @@ use Symfony\Component\Serializer\Exception\NotEncodableValueException;
 /**
  * Errors under /api answer as {"error": "<code>", "message": "…"} instead of an HTML page. A request
  * body that #[MapRequestPayload] can't use is 422 `invalid`: one that breaks the payload's
- * constraints with their message, one that isn't JSON with Symfony's.
+ * constraints with their message, one that isn't JSON with Symfony's. A Refused answers with its
+ * own status and error code, such as 410 `expired`.
  * Sign-in problems are answered earlier by the firewall. Unexpected errors become a 500
  * `server_error` whose message names the cause only in the dev environment.
  *
@@ -47,6 +49,11 @@ final readonly class JsonApiErrorListener
         if (!$exception instanceof HttpExceptionInterface) {
             $message = 'dev' === $this->environment ? $exception->getMessage() : 'Something went wrong on the server. Please try again.';
             $event->setResponse(new JsonResponse(['error' => 'server_error', 'message' => $message], 500));
+
+            return;
+        }
+        if ($exception instanceof Refused) {
+            $event->setResponse(new JsonResponse($exception->body(), $exception->getStatusCode()));
 
             return;
         }

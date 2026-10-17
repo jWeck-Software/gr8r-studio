@@ -4,7 +4,6 @@ namespace App\Controller;
 
 use App\Entity\Member;
 use App\Invite\AcceptInvite;
-use App\Invite\InviteRefused;
 use App\Invite\Invites;
 use App\Security\SignedIn;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -23,11 +22,7 @@ final class InviteController extends AbstractController
     #[Route('/api/members/{invited}/invite', name: 'api_member_invite', methods: ['POST'])]
     public function resend(string $invited, Member $member, Invites $invites): Response
     {
-        try {
-            $invites->resend($member, $invited);
-        } catch (InviteRefused $refused) {
-            return new JsonResponse($refused->body(), $refused->status);
-        }
+        $invites->resend($member, $invited);
 
         return new Response(status: 204);
     }
@@ -35,22 +30,14 @@ final class InviteController extends AbstractController
     #[Route('/api/invites/{token}', name: 'api_invite', methods: ['GET'])]
     public function show(string $token, Invites $invites): JsonResponse
     {
-        try {
-            return new JsonResponse($invites->describe($token));
-        } catch (InviteRefused $refused) {
-            return new JsonResponse($refused->body(), $refused->status);
-        }
+        return new JsonResponse($invites->describe($token));
     }
 
     /** Accepting signs the person in as the Member they were invited as, with the same body as /api/login. */
     #[Route('/api/invites/{token}/accept', name: 'api_invite_accept', methods: ['POST'])]
     public function accept(string $token, #[MapRequestPayload(acceptFormat: 'json')] AcceptInvite $body, Invites $invites, Security $security, SignedIn $signedIn): Response
     {
-        try {
-            $user = $invites->accept($token, trim($body->name), $body->password);
-        } catch (InviteRefused $refused) {
-            return new JsonResponse($refused->body(), $refused->status);
-        }
+        $user = $invites->accept($token, trim($body->name), $body->password);
 
         return $security->login($user, 'json_login', 'api') ?? new JsonResponse($signedIn->body($user));
     }

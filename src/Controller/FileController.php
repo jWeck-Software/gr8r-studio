@@ -4,7 +4,6 @@ namespace App\Controller;
 
 use App\Entity\Member;
 use App\File\FileCopy;
-use App\File\FileRefused;
 use App\File\Files;
 use App\File\NewFile;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -19,11 +18,7 @@ final class FileController extends AbstractController
     #[Route('/api/files', name: 'api_file_upload', methods: ['POST'])]
     public function upload(#[MapRequestPayload(acceptFormat: 'form')] NewFile $body, Member $member, Files $files): JsonResponse
     {
-        try {
-            return new JsonResponse($files->store($member, $body->file, $body->id, $body->project, $body->task), 201);
-        } catch (FileRefused $refused) {
-            return new JsonResponse($refused->body(), $refused->status);
-        }
+        return new JsonResponse($files->store($member, $body->file, $body->id, $body->project, $body->task), 201);
     }
 
     /**
@@ -33,21 +28,13 @@ final class FileController extends AbstractController
     #[Route('/api/files/{file}/content', name: 'api_file_content', methods: ['GET'])]
     public function content(string $file, Member $member, Files $files): Response
     {
-        try {
-            return $files->download($member, $file);
-        } catch (FileRefused $refused) {
-            return new JsonResponse($refused->body(), $refused->status);
-        }
+        return $files->download($member, $file);
     }
 
     /** Duplicates the File, content included, under the id the client sends: `{"id": "…"}`. Answers 201 with the copy. */
     #[Route('/api/files/{file}/copy', name: 'api_file_copy', methods: ['POST'])]
     public function copy(string $file, #[MapRequestPayload(acceptFormat: 'json')] FileCopy $body, Member $member, Files $files): JsonResponse
     {
-        try {
-            return new JsonResponse($files->copy($member, $file, $body->id), 201);
-        } catch (FileRefused $refused) {
-            return new JsonResponse($refused->body(), $refused->status);
-        }
+        return new JsonResponse($files->copy($member, $file, $body->id), 201);
     }
 }
