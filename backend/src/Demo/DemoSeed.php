@@ -5,6 +5,7 @@ namespace App\Demo;
 use App\Entity\Activity;
 use App\Entity\Comment;
 use App\Entity\Member;
+use App\Entity\Notification;
 use App\Entity\Project;
 use App\Entity\Task;
 use App\Entity\User;
@@ -17,8 +18,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  * The demo Workspace "Gr8r Studio", ported from the frontend's src/data/seed.js with
  * dates relative to today. Every active Member gets a User with the demo password.
  *
- * Not yet seeded (their tickets add them): Teams, Notifications,
- * Files, Events and Saved views.
+ * Not yet seeded (their tickets add them): Teams, Files, Events and Saved views.
  */
 final class DemoSeed
 {
@@ -47,6 +47,7 @@ final class DemoSeed
             $tasks = $this->tasks($ws, $projects, $members);
             $this->comments($ws, $tasks);
             $this->activity($ws);
+            $this->notifications($ws, $members['m1']);
         });
         $this->em->clear();
     }
@@ -380,6 +381,28 @@ final class DemoSeed
         ];
         foreach ($rows as $i => [$by, $verb, $task, $project, $minsAgo, $extra]) {
             $this->em->persist(new Activity('a'.($i + 1), $ws, $by, $verb, $task, $project, $this->minsAgo($minsAgo), $extra));
+        }
+    }
+
+    /** The signed-in demo Member's Notifications: the Owner's. */
+    private function notifications(Workspace $ws, Member $owner): void
+    {
+        $rows = [
+            ['n1', 'mention', 'm2', 't3', null, 'mentioned you in', 'Updated in v3 — @Tanjim Islam can you review before Thursday?', 210, false],
+            ['n2', 'assign', 'm3', 't28', null, 'assigned you', 'Due today · Medium priority', 300, false],
+            ['n3', 'comment', 'm4', 't9', null, 'commented on', 'Permission prompts need legal review — drafting now.', 40, false],
+            ['n4', 'mention', 'm7', 't35', null, 'mentioned you in', 'Support training moved to Monday. @Tanjim Islam please confirm the status page copy.', 200, false],
+            ['n5', 'update', 'm2', 't3', null, 'moved to Review', 'To Do → Review', 38, true],
+            ['n6', 'update', null, null, 'p4', 'Product Launch is at risk', '3 tasks due this week are not started', 600, false],
+            ['n7', 'comment', 'm2', 't34', null, 'commented on', 'Finance needs the channel split before approving.', 1500, true],
+            ['n8', 'assign', 'm2', 't6', null, 'assigned you', 'Due in 6 days', 2900, true],
+            ['n9', 'update', 'm3', 't18', null, 'completed', 'Fix broken anchor links on pricing', 90, true],
+            ['n10', 'update', null, 't28', null, 'is due today', 'Triage beta tester feedback', 20, false],
+        ];
+        foreach ($rows as [$id, $type, $by, $task, $project, $text, $snippet, $minsAgo, $read]) {
+            $notification = new Notification($id, $ws, $owner, $type, $by, $task, $project, $text, $snippet, $this->minsAgo($minsAgo));
+            $notification->markRead($read);
+            $this->em->persist($notification);
         }
     }
 

@@ -53,6 +53,18 @@ final class WorkspaceIsolationTest extends ApiTestCase
         self::assertSame(['tac1'], array_column($this->getJson('/api/bootstrap')['data']['tasks'], 'id'));
     }
 
+    /** Notifications are made by the server only; another Workspace's are as unknown as made-up ones. */
+    public function testMarkingAnotherWorkspacesNotificationReadChangesNothing(): void
+    {
+        $this->signIn('ada@acme.test', 'acme-password');
+        $body = $this->postJson('/api/sync', ['ops' => [['op' => 'put', 'type' => 'notifs', 'id' => 'n1', 'data' => ['id' => 'n1', 'type' => 'mention', 'by' => 'm2', 'task' => 't3', 'text' => 'mentioned you in', 'snippet' => '', 'at' => 0, 'read' => true]]]]);
+        self::assertSame(['ok' => true], $body);
+
+        $this->client->request('POST', '/api/logout');
+        $this->signIn();
+        self::assertFalse(array_column($this->getJson('/api/bootstrap')['data']['notifs'], null, 'id')['n1']['read']);
+    }
+
     public function testATaskCannotBePutIntoAnotherWorkspacesProject(): void
     {
         $this->signIn();

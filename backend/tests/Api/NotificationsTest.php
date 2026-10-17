@@ -11,6 +11,25 @@ final class NotificationsTest extends ApiTestCase
 {
     private const int NOW = 1792238400000;
 
+    /** The demo's Notifications are the Owner's, as in the frontend's seed. */
+    public function testTheDemoOwnerHasNotificationsNewestFirst(): void
+    {
+        $this->signIn();
+
+        $notifs = $this->getJson('/api/bootstrap')['data']['notifs'];
+
+        self::assertSame(['n10', 'n5', 'n3', 'n9', 'n4', 'n1', 'n2', 'n6', 'n7', 'n8'], array_column($notifs, 'id'));
+        self::assertSame([
+            'id' => 'n1', 'type' => 'mention', 'by' => 'm2', 'task' => 't3', 'text' => 'mentioned you in',
+            'snippet' => 'Updated in v3 — @Tanjim Islam can you review before Thursday?', 'at' => self::NOW - 210 * 60_000, 'read' => false,
+        ], $notifs[5]);
+        self::assertSame([
+            'id' => 'n6', 'type' => 'update', 'by' => null, 'project' => 'p4', 'text' => 'Product Launch is at risk',
+            'snippet' => '3 tasks due this week are not started', 'at' => self::NOW - 600 * 60_000, 'read' => false,
+        ], $notifs[7]);
+        self::assertSame([6, 4], [\count(array_filter($notifs, static fn (array $n): bool => !$n['read'])), \count(array_filter($notifs, static fn (array $n): bool => $n['read']))]);
+    }
+
     public function testAssigningATaskToSomeoneNotifiesThem(): void
     {
         $this->signIn();
