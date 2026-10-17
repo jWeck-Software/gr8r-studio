@@ -47,3 +47,34 @@ export async function mailedLink(to, kind, { after = 0, timeout = 5000 } = {}) {
 /* A fresh address for flows that sign out, change a password or delete a Workspace, so the shared
    sessions of the demo accounts stay valid. */
 export const freshEmail = tag => `e2e-${tag}-${Date.now()}-${Math.floor(Math.random() * 1e4)}@example.test`;
+
+/* The password of the fresh accounts (the policy: at least 10 characters with a number or symbol). */
+export const FRESH_PASSWORD = 'Fresh-pass-2026!';
+
+/* How many links of one kind the app has mailed to an address so far (var/log/mail.log). */
+export function mailCount(to, kind) {
+  return readFileSync(`${ROOT}var/log/mail.log`, 'utf8')
+    .split('\n')
+    .filter(line => line.includes(` to=${to} `) && line.includes(`#${kind}/`)).length;
+}
+
+/* A new, verified User, signed in on `request` (a page's request shares the browser's cookies), with
+   a Workspace of its own unless `workspace` is false. Resolves with the address and the Workspace. */
+export async function freshUser(request, tag, { workspace = true } = {}) {
+  const email = freshEmail(tag);
+  const after = Date.now() - 2000;
+  const signup = await request.post(API + 'signup', { data: { name: `E2E ${tag}`, email, password: FRESH_PASSWORD } });
+  if (!signup.ok()) throw new Error(`Signing up ${email} answered ${signup.status()}`);
+  const token = (await mailedLink(email, 'verify', { after })).split('#verify/')[1];
+  const verify = await request.post(API + 'verify-email', { data: { token } });
+  if (!verify.ok()) throw new Error(`Verifying ${email} answered ${verify.status()}`);
+  if (!workspace) return { email };
+  const name = `E2E ${tag} ${Date.now() % 1e6}`;
+  const url = `e2e-${tag}-${Date.now()}-${Math.floor(Math.random() * 1e4)}`;
+  const started = await request.post(API + 'workspaces', { data: { name, url, c: '#5A67D8' } });
+  if (!started.ok()) throw new Error(`Starting a Workspace for ${email} answered ${started.status()}`);
+  return { email, workspace: name, url };
+}
+
+/* A 1×1 PNG, for uploads. */
+export const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
