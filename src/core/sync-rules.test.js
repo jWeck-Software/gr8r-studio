@@ -84,7 +84,7 @@ test('without leftover changes a sign-in just loads the Workspace', () => {
 test('the synced types go out in an order where every record comes after the records it names', () => {
   const before = (a, b) => SYNCED.indexOf(a) >= 0 && SYNCED.indexOf(a) < SYNCED.indexOf(b);
   // A Member names their Team; a Project its Team, lead and Members; a Task its Project and assignee;
-  // the Project order its Projects; Comments and Activity their Tasks.
+  // the Project order its Projects; Comments, Activity and Files their Tasks.
   for (const [named, naming] of [
     ['teams', 'members'],
     ['teams', 'projects'],
@@ -94,6 +94,8 @@ test('the synced types go out in an order where every record comes after the rec
     ['projects', 'projOrder'],
     ['tasks', 'comments'],
     ['tasks', 'activity'],
+    ['projects', 'files'],
+    ['tasks', 'files'],
   ])
     assert.ok(before(named, naming), `${named} before ${naming}`);
   assert.ok(SYNCED.includes('ws'));

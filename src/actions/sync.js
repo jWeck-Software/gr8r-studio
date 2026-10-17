@@ -1,8 +1,9 @@
 /* =====================================================================
    SYNC (backend mode): the signed-in session and the Workspace on the server.
-   Callers need four calls: resumeSession() at boot, and signIn() from the login form,
-   acceptInvite() from the page an Invite email links to (#join/<token>) and signOut(), which
-   reach this module through store.js (onSession). Everything else happens on its own: every debounced save() diffs the synced
+   Callers need five calls: resumeSession() at boot, and signIn() from the login form,
+   acceptInvite() from the page an Invite email links to (#join/<token>), signOut() and flush()
+   (before an upload, which names a Task the server must know), which reach this module through
+   store.js (onSession). Everything else happens on its own: every debounced save() diffs the synced
    collections against the copy the server last confirmed and posts the ops, one request at
    a time. A refused batch (403/422) reloads the Workspace and says why; a failed request
    (offline, 5xx) keeps the changes pending and retries on the next save or when the browser
@@ -272,6 +273,6 @@ function sessionEnded() {
 
 if (BACKEND) {
   onSave(push);
-  onSession({ signIn, signOut, acceptInvite });
+  onSession({ signIn, signOut, acceptInvite, flush: settle });
   addEventListener('online', push);
 }

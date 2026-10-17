@@ -16,6 +16,7 @@ import {
   me,
   mem,
   proj,
+  flushSync,
   save,
   signIn,
   signOut,
@@ -32,6 +33,7 @@ import { TEMPLATES, closeModal, openModal } from '../overlays/modals.js';
 import { closePop, openPop, tgt } from '../overlays/popovers.js';
 import { strengthMeter } from '../pages/settings.js';
 import { BACKEND, api } from '../core/api.js';
+import { attachmentOf, removeFile } from '../core/files.js';
 import { slug } from '../core/slug.js';
 
 export const A = {},
@@ -125,6 +127,7 @@ export function applyPatch(t, patch) {
     else if (k === 'project') {
       const p = proj(nv);
       t.key = nextKey(p);
+      D().files.forEach(f => f.task === t.id && (f.project = nv)); // its Files go along
       logAct('moved', t, `to ${p.name}`);
     } else if (k === 'labels') logAct('updated labels on', t);
     else if (k === 'title') logAct('renamed', t, `to “${nv}”`);
@@ -525,6 +528,7 @@ export function deleteTasks(ids) {
   D().tasks = D().tasks.filter(t => !set.has(t.id));
   D().tasks.forEach(t => (t.deps = t.deps.filter(d => !set.has(d))));
   D().comments = D().comments.filter(c => !set.has(c.task));
+  D().files = D().files.filter(f => !set.has(f.task));
   if (set.has(S.ui.drawer)) S.ui.drawer = null;
   ids.forEach(i => S.ui.sel.delete(i));
 }
@@ -606,7 +610,8 @@ IN.formMore = el => {
   S.ui.form.more = el.checked;
 };
 IN.formFiles = el => {
-  [...el.files].forEach(f => S.ui.form.files.push({ name: f.name, size: fsize(f.size), type: fileType(f.name) }));
+  // `file` is what backend mode uploads once the Task is saved
+  [...el.files].forEach(f => S.ui.form.files.push({ name: f.name, size: fsize(f.size), type: fileType(f.name), file: f }));
   render();
 };
 KEY.formAddSub = el => {
@@ -637,7 +642,9 @@ A.submitTask = () => {
     return;
   }
   S.ui.errors = {};
-  const files = f.files.map(x => ({ id: uid('a'), name: x.name, type: x.type, size: x.size, by: D().me, at: Date.now() }));
+  // The demo makes the Files up; backend mode uploads them once the Task is saved.
+  const files = BACKEND ? [] : f.files.map(x => ({ id: uid('f'), name: x.name, type: x.type, size: x.size, by: D().me, at: Date.now() }));
+  const uploads = BACKEND ? f.files.map(x => x.file) : [];
   const base = {
     title,
     project: f.project,
@@ -664,9 +671,11 @@ A.submitTask = () => {
         )
           t.desc = f.desc ? `<p>${esc(f.desc)}</p>` : '';
         t.attachments.push(...files);
+        files.forEach(x => D().files.unshift({ ...x, project: t.project, task: t.id }));
       })
     )
       return;
+    if (uploads.length) handleFiles(uploads, { project: t.project, task: t.id });
     S.ui.modals.pop();
     render();
     toast('Changes saved');
@@ -680,6 +689,7 @@ A.submitTask = () => {
     })
   )
     return;
+  if (uploads.length) handleFiles(uploads, { project: t.project, task: t.id });
   if (f.more) {
     Object.assign(f, { title: '', desc: '', subtasks: [], files: [] });
     render();
@@ -810,7 +820,7 @@ A.rmAttach = el => {
   const t = task(el.dataset.id);
   const f = t.attachments.find(a => a.id === el.dataset.aid);
   mutate(() => {
-    t.attachments = t.attachments.filter(a => a.id !== el.dataset.aid);
+    removeFile(D(), t.id, f); // the File goes with its Attachment
     logAct('removed a file from', t);
   });
   toast(`Removed ${f.name}`);
@@ -835,29 +845,64 @@ export function handleFiles(files, ctx) {
   [...files].forEach(file => {
     const up = { id: uid('u'), name: file.name, size: fsize(file.size), project: ctx.project, task: ctx.task, pct: 0 };
     S.ui.uploads.push(up);
-    const iv = setInterval(() => {
-      up.pct = Math.min(100, up.pct + 9 + Math.round(Math.random() * 22));
-      const bar = document.getElementById('upbar-' + up.id),
-        pc = document.getElementById('upct-' + up.id);
-      if (bar) bar.style.setProperty('--p', up.pct / 100);
-      if (pc) pc.textContent = up.pct + '%';
-      if (up.pct >= 100) {
-        clearInterval(iv);
-        S.ui.uploads = S.ui.uploads.filter(x => x !== up);
-        const rec = { id: uid('f'), name: up.name, type: fileType(up.name), size: up.size, by: D().me, at: Date.now() };
-        D().files.unshift({ ...rec, project: up.project, task: up.task || null });
-        if (up.task) {
-          const t = task(up.task);
-          t.attachments.push(rec);
-          logAct('added a file to', t, up.name);
-        }
-        save();
-        render();
-        toast(`Uploaded ${up.name}`);
-      }
-    }, 220);
+    if (BACKEND) uploadFile(file, up);
+    else simulateUpload(up);
   });
   render();
+}
+function showProgress(up) {
+  const bar = document.getElementById('upbar-' + up.id),
+    pc = document.getElementById('upct-' + up.id);
+  if (bar) bar.style.setProperty('--p', up.pct / 100);
+  if (pc) pc.textContent = up.pct + '%';
+}
+/* The demo: a progress bar, then a File made up from the name and size. */
+function simulateUpload(up) {
+  const iv = setInterval(() => {
+    up.pct = Math.min(100, up.pct + 9 + Math.round(Math.random() * 22));
+    showProgress(up);
+    if (up.pct >= 100) {
+      clearInterval(iv);
+      uploaded(up, {
+        id: uid('f'),
+        name: up.name,
+        type: fileType(up.name),
+        size: up.size,
+        by: D().me,
+        at: Date.now(),
+        project: up.project,
+        task: up.task || null,
+      });
+    }
+  }, 220);
+}
+/* Backend mode: the file goes to the server, which answers with the File as stored. */
+async function uploadFile(file, up) {
+  try {
+    await flushSync(); // a new Task the File is attached to has to reach the server first
+    const rec = await api.uploadFile(file, { id: uid('f'), project: up.project, task: up.task }, p => {
+      up.pct = Math.round(p * 100);
+      showProgress(up);
+    });
+    uploaded(up, rec);
+  } catch (e) {
+    S.ui.uploads = S.ui.uploads.filter(x => x !== up);
+    render();
+    toast(`${up.name} wasn't uploaded. ${e.message}`, { kind: 'err', ms: 7000 });
+  }
+}
+function uploaded(up, rec) {
+  S.ui.uploads = S.ui.uploads.filter(x => x !== up);
+  // A refresh may have brought the File in already
+  if (!D().files.some(f => f.id === rec.id)) D().files.unshift(rec);
+  const t = rec.task && task(rec.task);
+  if (t) {
+    if (!t.attachments.some(a => a.id === rec.id)) t.attachments.push(attachmentOf(rec));
+    logAct('added a file to', t, up.name);
+  }
+  save();
+  render();
+  toast(`Uploaded ${up.name}`);
 }
 IN.uploadFiles = el => {
   handleFiles(el.files, { project: el.dataset.project, task: el.dataset.task });
@@ -1665,12 +1710,24 @@ A.renameFile = el => {
     },
   });
 };
-A.dupFile = el => {
+A.dupFile = async el => {
   const f = D().files.find(x => x.id === el.dataset.id);
   S.ui.pop = null;
+  let copy = { ...f, id: uid('f'), name: f.name.replace(/(\.[^.]+)$/, ' copy$1'), at: Date.now(), by: D().me };
+  if (BACKEND) {
+    // The server copies the content too and answers with the copy as stored
+    render();
+    try {
+      await flushSync();
+      copy = await api.copyFile(f.id, copy.id);
+    } catch (e) {
+      toast(`${f.name} wasn't duplicated. ${e.message}`, { kind: 'err', ms: 7000 });
+      return;
+    }
+  }
   mutate(() => {
-    const i = D().files.indexOf(f);
-    D().files.splice(i + 1, 0, { ...f, id: uid('f'), name: f.name.replace(/(\.[^.]+)$/, ' copy$1'), at: Date.now(), by: D().me });
+    D().files.splice(D().files.indexOf(f) + 1, 0, copy);
+    if (copy.task && task(copy.task)) task(copy.task).attachments.push(attachmentOf(copy));
   });
   toast('File duplicated');
 };
@@ -1679,18 +1736,14 @@ A.delFile = el => {
   S.ui.pop = null;
   confirmDlg({
     title: 'Delete file?',
-    body: `<b>${esc(f.name)}</b> will be removed from the project${f.task ? ' and its task' : ''}.`,
+    body: `<b>${esc(f.name)}</b> will be removed from the project${f.task ? ' and its task' : ''}.${BACKEND ? " It's deleted for everyone and can't be undone." : ''}`,
     ok: 'Delete file',
     danger: true,
     run: () => {
       const snap = snapshot();
-      if (
-        mutate(() => {
-          D().files = D().files.filter(x => x !== f);
-          if (f.task && task(f.task)) task(f.task).attachments = task(f.task).attachments.filter(a => a.name !== f.name);
-        })
-      )
-        toast(`Deleted ${f.name}`, { action: 'Undo', onAction: () => restore(snap) });
+      if (mutate(() => removeFile(D(), f.task, f)))
+        // In backend mode its content is gone from the server: undo couldn't bring it back
+        toast(`Deleted ${f.name}`, BACKEND ? {} : { action: 'Undo', onAction: () => restore(snap) });
     },
   });
 };

@@ -6,7 +6,7 @@ import { D, S, mem, pColor, proj, task, teamsList } from '../core/store.js';
 import { FT, av, filePrev, lbl, prPill, stPill } from '../ui/helpers.js';
 import { focusKey, render } from '../shell/render.js';
 import { teamModal } from '../features/teams.js';
-import { BACKEND } from '../core/api.js';
+import { BACKEND, fileUrl } from '../core/api.js';
 
 export function openModal(m) {
   S.ui.modalOpeners = S.ui.modalOpeners || [];
@@ -285,7 +285,7 @@ export function filePreviewModal(m, H) {
   const f = m.file;
   const t = FT[f.type] || FT.other;
   return `${H(esc(f.name), `${t.n} · ${f.size} · Uploaded by ${esc(mem(f.by)?.name || 'you')} ${ago(f.at)}`)}
-  <div class="modal-b"><div style="border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden">${filePrev(f).replace('class="fprev"', 'class="fprev" style="aspect-ratio:16/9"')}</div>
+  <div class="modal-b"><div style="border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden">${BACKEND && f.type === 'img' ? `<img class="fimg" src="${fileUrl(f.id)}" alt="${esc(f.name)}" style="display:block;width:100%;aspect-ratio:16/9;object-fit:contain;background:var(--surface-2)">` : filePrev(f).replace('class="fprev"', 'class="fprev" style="aspect-ratio:16/9"')}</div>
   ${m.tid ? `<div class="row faint" style="font-size:12.5px">${ic('link', 13)}Attached to <button class="link" data-a="openTask" data-id="${m.tid}">${esc(task(m.tid)?.title)}</button></div>` : ''}</div>
-  <div class="modal-f"><button class="btn btn-secondary" data-a="copyLink" data-fid="${f.id}">${ic('link', 14)}Copy link</button><span class="sp"></span><button class="btn btn-primary" data-a="closeModal">Close</button></div>`;
+  <div class="modal-f"><button class="btn btn-secondary" data-a="copyLink" data-fid="${f.id}">${ic('link', 14)}Copy link</button><span class="sp"></span>${BACKEND ? `<a class="btn btn-secondary" href="${fileUrl(f.id)}" download="${esc(f.name)}">${ic('download', 14)}Download</a>` : ''}<button class="btn btn-primary" data-a="closeModal">Close</button></div>`;
 }

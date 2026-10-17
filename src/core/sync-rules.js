@@ -5,9 +5,10 @@ import { diffData } from './diff.js';
 /* Collections and singletons written through /api/sync, in the order the server applies them: every
    record after those it names. Teams before the Members in them, Members before the Projects they lead
    or belong to and the Tasks assigned to them, Projects before their Tasks and the Project order, Tasks
-   before the Comments and Activity about them. Notifications are the server's; only their `read` flag
-   goes back. Grows ticket by ticket. */
-export const SYNCED = ['ws', 'teams', 'members', 'projects', 'tasks', 'projOrder', 'comments', 'activity', 'notifs'];
+   before the Comments, Activity and Files about them. Notifications are the server's; only their `read`
+   flag goes back. Files are made by an upload or a copy (handleFiles, dupFile); the sync only renames and
+   deletes them. Grows ticket by ticket. */
+export const SYNCED = ['ws', 'teams', 'members', 'projects', 'tasks', 'projOrder', 'comments', 'activity', 'files', 'notifs'];
 
 /** What S.data becomes when a refresh brings the server's snapshot: the synced `types` from the server, everything else (kept in this browser only so far) from `local`. Null when the server has nothing new for those types. A snapshot of another Member (someone signed in from another tab) replaces everything. */
 export function mergeSnapshot(local, server, types) {
