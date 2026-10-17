@@ -1,12 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { afterSignIn, midEdit, refreshed } from './sync-rules.js';
+import { afterSignIn, midEdit, mergeSnapshot } from './sync-rules.js';
 
 test('a refresh takes the synced collections from the server and keeps what lives only in this browser', () => {
   const local = { me: 'm1', tasks: [{ id: 't1', title: 'Old' }], savedViews: [{ id: 'v1' }], files: [{ id: 'f1' }] };
   const server = { me: 'm1', tasks: [{ id: 't1', title: 'New' }], savedViews: [], files: [] };
 
-  assert.deepEqual(refreshed(local, server, ['tasks']), {
+  assert.deepEqual(mergeSnapshot(local, server, ['tasks']), {
     me: 'm1',
     tasks: [{ id: 't1', title: 'New' }],
     savedViews: [{ id: 'v1' }],
@@ -18,14 +18,14 @@ test('a refresh that brings nothing new changes nothing, so the page is not redr
   const local = { me: 'm1', tasks: [{ id: 't1', title: 'Same', tags: [] }], savedViews: [{ id: 'v1' }] };
   const server = { me: 'm1', tasks: [{ tags: [], title: 'Same', id: 't1' }], savedViews: [] };
 
-  assert.equal(refreshed(local, server, ['tasks']), null);
+  assert.equal(mergeSnapshot(local, server, ['tasks']), null);
 });
 
 test("a snapshot of another Member (signed in from another tab) replaces everything, nothing of this browser's copy stays", () => {
   const local = { me: 'm1', tasks: [{ id: 't1' }], savedViews: [{ id: 'v1' }] };
   const server = { me: 'm2', tasks: [{ id: 't1' }], savedViews: [] };
 
-  assert.deepEqual(refreshed(local, server, ['tasks']), { me: 'm2', tasks: [{ id: 't1' }], savedViews: [] });
+  assert.deepEqual(mergeSnapshot(local, server, ['tasks']), { me: 'm2', tasks: [{ id: 't1' }], savedViews: [] });
 });
 
 const resting = {

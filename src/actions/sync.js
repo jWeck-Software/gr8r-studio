@@ -10,13 +10,13 @@
    While signed in, teammates' changes come in by a refresh when the tab is shown again or the
    window regains focus, and every 60 s while the tab is visible: pending changes are sent first,
    and the snapshot replaces the synced collections only when nothing is unsynced afterwards and
-   the user is not in the middle of an edit nor able to undo (sync-rules.js). An expired session (401) keeps the
-   unsynced changes and shows the login screen; signing in again as the same Member sends them,
-   another Member signing in discards them.
+   the user is neither in the middle of an edit nor able to undo (sync-rules.js). An expired
+   session (401) keeps the unsynced changes and shows the login screen; signing in again as the
+   same Member sends them, another Member signing in discards them.
    ===================================================================== */
 import { BACKEND, api } from '../core/api.js';
 import { diffData } from '../core/diff.js';
-import { afterSignIn, midEdit, refreshed } from '../core/sync-rules.js';
+import { afterSignIn, midEdit, mergeSnapshot } from '../core/sync-rules.js';
 import { S, me, onSave, task } from '../core/store.js';
 import { toast } from '../ui/toast.js';
 import { render } from '../shell/render.js';
@@ -31,11 +31,11 @@ export const SYNCED = ['projects', 'tasks', 'projOrder', 'comments', 'activity',
 let synced = null; // what the server last confirmed, as a deep copy; null while signed out
 let session = 0; // bumped on every sign-in and sign-out, so late answers of an old session are dropped
 let inFlight = null; // the running push, if any: never two sync requests at once
-let again = false; // a save came in while a push was running
+let pushAgain = false; // a save came in while a push was running
 let sends = 0; // counts the batches sent, so a refresh sees whether one went out while it was fetching
 let failing = false; // the last push could not reach the server
-let leaving = Promise.resolve(); // a sign-out still talking to the server
-let left = null; // unsynced changes of a session that ended: { member, name, synced }, sent after signing in again as that Member
+let signingOut = Promise.resolve(); // a sign-out still talking to the server
+let leftover = null; // unsynced changes of a session that ended: { member, name, synced }, sent after signing in again as that Member
 let refreshing = null; // the running refresh, if any
 let poll = 0; // the 60 s refresh timer while signed in
 let typedIn = null; // the field last typed into: its text may exist only in the page
@@ -58,10 +58,10 @@ export async function resumeSession() {
 
 /** Signs in and loads the Workspace. Rejects with an ApiError whose message can be shown as is. */
 export async function signIn(email, password) {
-  await leaving;
+  await signingOut;
   const { member } = await api.login(email, password);
-  const was = left;
-  left = null;
+  const was = leftover;
+  leftover = null;
   const next = afterSignIn(was, member);
   if (next === 'resend') return resend(was.synced);
   await loadWorkspace();
@@ -72,14 +72,14 @@ export async function signIn(email, password) {
 /** Sends what is still pending, then ends the session on the server. */
 export function signOut() {
   unwatch();
-  leaving = (async () => {
+  signingOut = (async () => {
     await settle();
-    if (synced) strand();
+    if (synced) keepLeftover();
     synced = null;
     session++;
     await api.logout().catch(() => {});
   })();
-  return leaving;
+  return signingOut;
 }
 
 async function loadWorkspace() {
@@ -101,29 +101,29 @@ async function resend(base) {
   failing = false;
   watch();
   await settle();
-  await pull(() => true);
+  await refresh(() => true);
 }
 
 /* Keeps the unsynced changes of a session that is ending, for when its Member signs in again. */
-function strand() {
-  left = pending() ? { member: S.data.me, name: me()?.name, synced } : null;
+function keepLeftover() {
+  leftover = pending() ? { member: S.data.me, name: me()?.name, synced } : null;
 }
 
 /* ---------- refresh: teammates' changes ---------- */
 
 function watch() {
   if (poll) return;
-  poll = setInterval(refresh, REFRESH_MS);
-  addEventListener('focus', refresh);
-  document.addEventListener('visibilitychange', refresh);
+  poll = setInterval(refreshIfIdle, REFRESH_MS);
+  addEventListener('focus', refreshIfIdle);
+  document.addEventListener('visibilitychange', refreshIfIdle);
   document.addEventListener('input', noteTyping, true);
 }
 
 function unwatch() {
   clearInterval(poll);
   poll = 0;
-  removeEventListener('focus', refresh);
-  document.removeEventListener('visibilitychange', refresh);
+  removeEventListener('focus', refreshIfIdle);
+  document.removeEventListener('visibilitychange', refreshIfIdle);
   document.removeEventListener('input', noteTyping, true);
 }
 
@@ -138,15 +138,16 @@ function stillEditing() {
   return midEdit(S.ui, { typing, dragging: !!DRAG });
 }
 
-function refresh() {
+function refreshIfIdle() {
   if (document.visibilityState !== 'visible' || stillEditing()) return;
-  pull(() => !stillEditing());
+  refresh(() => !stillEditing());
 }
 
-/* One refresh at a time: send what is pending, fetch the snapshot, and apply it only when nothing
-   is unsynced (a failed send, or an edit while the request was out), nothing was sent meanwhile,
-   and `mayApply()` still holds. */
-function pull(mayApply) {
+/* Brings in teammates' changes, one refresh at a time: send what is pending, fetch the snapshot,
+   and apply it only when nothing is unsynced (a failed send, or an edit while the request was out),
+   nothing was sent meanwhile, and `mayApply()` still holds. refreshIfIdle() is what focus, tab
+   visibility and the poll call. */
+function refresh(mayApply) {
   refreshing ||= (async () => {
     const s = session;
     try {
@@ -156,7 +157,7 @@ function pull(mayApply) {
       const { data } = await api.bootstrap();
       // A batch sent meanwhile may be missing from this snapshot: the next refresh brings it.
       if (s !== session || sends !== sent || inFlight || pending() || !mayApply()) return;
-      const next = refreshed(S.data, data, SYNCED);
+      const next = mergeSnapshot(S.data, data, SYNCED);
       if (!next) return;
       S.data = next;
       synced = copyOf(next);
@@ -173,13 +174,13 @@ function pull(mayApply) {
 function push() {
   if (!synced) return;
   if (inFlight) {
-    again = true;
+    pushAgain = true;
     return;
   }
   inFlight = send().finally(() => {
     inFlight = null;
-    if (again) {
-      again = false;
+    if (pushAgain) {
+      pushAgain = false;
       push();
     }
   });
@@ -251,7 +252,7 @@ function dropVanished() {
 }
 
 function sessionEnded() {
-  strand();
+  keepLeftover();
   unwatch();
   synced = null;
   session++;
