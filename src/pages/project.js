@@ -41,10 +41,6 @@ export function pageProject() {
     if (!sv) body = page404();
     else {
       const k = 'sv:' + sv.id;
-      if (!S.views[k]) {
-        viewOf(k);
-        S.views[k].filters = JSON.parse(JSON.stringify(sv.filters));
-      }
       body = taskViewBody(sv.type, applyView(ts, viewOf(k)), k, p);
     }
   } else if (tab === 'overview') body = projOverview(p);

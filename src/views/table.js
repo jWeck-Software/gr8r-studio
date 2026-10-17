@@ -51,6 +51,7 @@ export function tcell(t, c) {
 }
 export function tableHtml(ts, key, p) {
   const v = viewOf(key);
+  // Views kept from before blankView() hid the Project column of a Project's table.
   if (p && !v._projHidden) {
     v._projHidden = true;
     if (!v.hidden.includes('project')) v.hidden.push('project');

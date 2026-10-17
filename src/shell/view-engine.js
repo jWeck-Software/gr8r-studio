@@ -55,18 +55,24 @@ export const FIELDS = {
     ],
   },
 };
-/** A view as it is before anyone changes it: no filters, manual order, grouped by status. */
-export const blankView = () => ({
-  filters: [],
-  sort: { f: 'manual', dir: 1 },
-  group: 'status',
-  q: '',
-  hidden: ['start', 'created', 'deps'],
-  colW: {},
-  showDone: true,
-});
+/** The view of this key as it is before anyone changes it: manual order, grouped by status. A Project's table
+   has no Project column, and a Saved view ('sv:<id>') starts from that Saved view's filters. */
+export function blankView(key) {
+  const inProject = key.startsWith('p:') || key.startsWith('sv:');
+  const saved = key.startsWith('sv:') && D().savedViews.find(v => v.id === key.slice(3));
+  return {
+    filters: saved ? JSON.parse(JSON.stringify(saved.filters)) : [],
+    sort: { f: 'manual', dir: 1 },
+    group: 'status',
+    q: '',
+    hidden: inProject ? ['start', 'created', 'deps', 'project'] : ['start', 'created', 'deps'],
+    colW: {},
+    showDone: true,
+    ...(inProject && { _projHidden: true }),
+  };
+}
 export function viewOf(key) {
-  if (!S.views[key]) S.views[key] = blankView();
+  if (!S.views[key]) S.views[key] = blankView(key);
   return S.views[key];
 }
 export function matchF(t, f) {

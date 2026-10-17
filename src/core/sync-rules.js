@@ -30,13 +30,13 @@ export const SYNCED = [
 ];
 
 /** What this browser syncs: S.data with the Member's Preferences and view settings beside it. Name and title stay out
-   of the Preferences: the Member record owns them (members). Views equal to `blankView` (what viewOf() makes when a
-   view is first rendered) stay out too, so a browser that only showed a Project has nothing to send. */
+   of the Preferences: the Member record owns them (members). Views equal to `blankView(key)` (what viewOf() makes when
+   a view is first rendered) stay out too, so a browser that only showed a Project or a Saved view has nothing to send. */
 export function syncState(data, prefs, views, blankView) {
   const own = { ...prefs };
   delete own.name;
   delete own.title;
-  return { ...data, prefs: own, views: Object.fromEntries(Object.entries(views).filter(([, v]) => !same(v, blankView))) };
+  return { ...data, prefs: own, views: Object.fromEntries(Object.entries(views).filter(([key, v]) => !same(v, blankView(key)))) };
 }
 
 /** The state to start from after signing in: the server's (`server`, in the shape of syncState()). Where the server keeps

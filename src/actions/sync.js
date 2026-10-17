@@ -39,7 +39,7 @@ let poll = 0; // the 60 s refresh timer while signed in
 let typedIn = null; // the field last typed into: its text may exist only in the page
 
 const REFRESH_MS = 60_000;
-const state = () => syncState(S.data, S.prefs, S.views, blankView());
+const state = () => syncState(S.data, S.prefs, S.views, blankView);
 const copyOf = st => JSON.parse(JSON.stringify(Object.fromEntries(SYNCED.map(c => [c, st[c]]))));
 const pending = () => !!synced && diffData(synced, copyOf(state()), SYNCED).length > 0;
 const snapshotState = ({ data, prefs, views }) => ({ ...data, prefs, views });
@@ -112,6 +112,8 @@ async function loadWorkspace({ keepLocal = true } = {}) {
   synced = copyOf(server);
   failing = false;
   watch();
+  // Sends this browser's prefs and views when the server had none for the Member (and fills in DEFAULT_PREFS) at once,
+  // before the user's first change; the next save() keeps in localStorage whose they are.
   push();
 }
 

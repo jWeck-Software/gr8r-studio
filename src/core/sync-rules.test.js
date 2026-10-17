@@ -105,11 +105,14 @@ test('the synced types go out in an order where every record comes after the rec
 });
 
 const blank = { filters: [], sort: { f: 'manual', dir: 1 }, group: 'status', q: '', hidden: ['start', 'created', 'deps'], colW: {}, showDone: true };
+const highPriority = [{ f: 'priority', op: 'is', v: ['urgent', 'high'] }];
+// As blankView() in src/shell/view-engine.js: a Saved view starts from its own filters.
+const blankOf = key => (key === 'sv:v1' ? { ...blank, filters: highPriority } : blank);
 
 test("the synced state carries the Member's Preferences without name and title, which are the Member record's", () => {
   const data = { me: 'm1', members: [{ id: 'm1', name: 'Tanjim Islam', title: 'Head of Product' }] };
 
-  const state = syncState(data, { theme: 'dark', density: 'compact', name: 'Old name', title: 'Old title' }, {}, blank);
+  const state = syncState(data, { theme: 'dark', density: 'compact', name: 'Old name', title: 'Old title' }, {}, blankOf);
 
   assert.deepEqual(state, {
     me: 'm1',
@@ -119,23 +122,23 @@ test("the synced state carries the Member's Preferences without name and title, 
   });
 });
 
-test('views only rendered, never changed, are not synced: opening a Project sends nothing', () => {
-  const synced = syncState({ me: 'm1' }, { theme: 'dark' }, { 'p:p2': { ...blank, group: 'assignee' } }, blank);
+test('views only rendered, never changed, are not synced: opening a Project or a Saved view sends nothing', () => {
+  const synced = syncState({ me: 'm1' }, { theme: 'dark' }, { 'p:p2': { ...blank, group: 'assignee' } }, blankOf);
 
   const opened = syncState(
     { me: 'm1' },
     { theme: 'dark' },
-    { 'p:p2': { ...blank, group: 'assignee' }, 'p:p1': { ...blank, colW: {} }, mytasks: { ...blank } },
-    blank,
+    { 'p:p2': { ...blank, group: 'assignee' }, 'p:p1': { ...blank, colW: {} }, mytasks: { ...blank }, 'sv:v1': { ...blank, filters: highPriority } },
+    blankOf,
   );
 
   assert.deepEqual(diffData(synced, opened, SYNCED), []);
 });
 
 test('a changed view is sent with all views the Member changed', () => {
-  const synced = syncState({ me: 'm1' }, {}, { 'p:p2': { ...blank, group: 'assignee' } }, blank);
+  const synced = syncState({ me: 'm1' }, {}, { 'p:p2': { ...blank, group: 'assignee' } }, blankOf);
 
-  const next = syncState({ me: 'm1' }, {}, { 'p:p2': { ...blank, group: 'assignee' }, 'p:p1': { ...blank, colW: { title: 320 } } }, blank);
+  const next = syncState({ me: 'm1' }, {}, { 'p:p2': { ...blank, group: 'assignee' }, 'p:p1': { ...blank, colW: { title: 320 } } }, blankOf);
 
   assert.deepEqual(diffData(synced, next, SYNCED), [
     { op: 'set', type: 'views', data: { 'p:p2': { ...blank, group: 'assignee' }, 'p:p1': { ...blank, colW: { title: 320 } } } },
