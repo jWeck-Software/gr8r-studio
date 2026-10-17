@@ -38,3 +38,14 @@ test("in the browser's demo data, whose Attachments have ids of their own, the F
   assert.deepEqual(d.files, [sameName]);
   assert.deepEqual(d.tasks[0].attachments, []);
 });
+
+test('an Attachment another Task carries over (a duplicated Task) removes only itself, not the File of the Task it came from', () => {
+  const d = data();
+  d.tasks.push({ id: 't9', attachments: [att(wire)] });
+
+  removeFile(d, 't9', att(wire));
+
+  assert.deepEqual(d.files, [wire, audit]);
+  assert.deepEqual(d.tasks[1].attachments, []);
+  assert.deepEqual(d.tasks[0].attachments, [att(wire), att(audit)]);
+});

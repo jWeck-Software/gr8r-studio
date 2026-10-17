@@ -506,7 +506,16 @@ A.dupTask = el => {
   S.ui.pop = null;
   let n;
   mutate(() => {
-    n = createTask({ ...JSON.parse(JSON.stringify(t)), id: uid('t'), key: undefined, title: t.title + ' (copy)', created: Date.now(), fav: false });
+    // A File is attached to one Task: the copy starts without the original's (core/files.js)
+    n = createTask({
+      ...JSON.parse(JSON.stringify(t)),
+      id: uid('t'),
+      key: undefined,
+      title: t.title + ' (copy)',
+      created: Date.now(),
+      fav: false,
+      attachments: [],
+    });
     n.key = nextKey(proj(n.project));
   });
   toast('Task duplicated', { action: 'Open', onAction: () => A.openTask({ dataset: { id: n.id } }) });
@@ -1413,7 +1422,7 @@ A.dupProject = el => {
   let n;
   mutate(() => {
     n = createProject({ ...p, name: p.name + ' copy' }, 'blank');
-    tasksOf(p.id).forEach(t => createTask({ ...JSON.parse(JSON.stringify(t)), id: uid('t'), key: undefined, project: n.id, status: 'todo' }));
+    tasksOf(p.id).forEach(t => createTask({ ...JSON.parse(JSON.stringify(t)), id: uid('t'), key: undefined, project: n.id, status: 'todo', attachments: [] }));
   });
   toast(`Duplicated ${p.name}`, { action: 'Open', onAction: () => go('project', { id: n.id }) });
 };
