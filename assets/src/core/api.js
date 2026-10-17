@@ -1,6 +1,7 @@
 /* ---------- api: the backend's HTTP endpoints ---------- */
-/* Backend mode is on when the build sets VITE_API_URL (e.g. `/api`, proxied by the Vite dev
-   server). Without it the app is the localStorage demo and nothing here is called.
+/* Backend mode is on when the build sets VITE_API_URL: `api` in `npm run build`, relative to the
+   page, so the app reaches the API next to itself in public/; `/api` with the Vite dev server's
+   proxy. Without it the app is the localStorage demo and nothing here is called.
    Every call resolves with the parsed JSON body, or rejects with an ApiError: `status` is the
    HTTP status, or 0 when the server could not be reached. */
 export const API_URL = import.meta.env.VITE_API_URL || '';

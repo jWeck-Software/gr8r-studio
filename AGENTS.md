@@ -4,6 +4,11 @@ This is a Symfony project. Check `composer.json` for the exact Symfony/PHP versi
 in use, and read `symfony.lock` to see which recipes ran. Don't assume Doctrine,
 Twig, API Platform, Messenger, or Lock are installed unless one of those says so.
 
+The repository root is the Symfony app: `src/`, `tests/`, `config/` and `migrations/` are PHP.
+The frontend (plain JavaScript, built by Vite) lives in `assets/` (`assets/src/` is its source);
+`npm run build` writes it into `public/` next to `index.php` and `.htaccess`, and that output is
+git-ignored. Never let a frontend build empty `public/`. See `README.md` for both halves.
+
 ## Ask before generating
 
 If the task doesn't specify, ask rather than guess:

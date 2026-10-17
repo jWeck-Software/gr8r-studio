@@ -4,7 +4,9 @@
 
 # Front controller rewrite, as shipped by the symfony/apache-pack recipe (that recipe lives in
 # recipes-contrib, which this project doesn't enable, so its file is copied here by hand).
-DirectoryIndex index.php
+# The built frontend (npm run build) is index.html here, so / serves the app and the rest goes to
+# the front controller.
+DirectoryIndex index.html index.php
 
 <IfModule mod_negotiation.c>
     Options -MultiViews
@@ -14,7 +16,7 @@ DirectoryIndex index.php
     RewriteEngine On
 
     # The base path of this directory, so the app also works in a subdirectory such as
-    # http://localhost/repos/gr8r-studio/backend/public/.
+    # http://localhost/repos/gr8r-studio/public/.
     RewriteCond %{REQUEST_URI}::$0 ^(/.+)/(.*)::\2$
     RewriteRule .* - [E=BASE:%1]
 
@@ -25,6 +27,11 @@ DirectoryIndex index.php
     # Redirect /index.php/... to /... so the front controller doesn't show up in URLs.
     RewriteCond %{ENV:REDIRECT_STATUS} =""
     RewriteRule ^index\.php(?:/(.*)|$) %{ENV:BASE}/$1 [R=301,L]
+
+    # The directory itself serves the built frontend, when there is one. DirectoryIndex alone comes
+    # too late: the rule below already sends the directory, which is no file, to the front controller.
+    RewriteCond %{REQUEST_FILENAME}/index.html -f
+    RewriteRule ^$ %{ENV:BASE}/index.html [L]
 
     # Everything that isn't an existing file goes to the front controller.
     RewriteCond %{REQUEST_FILENAME} !-f

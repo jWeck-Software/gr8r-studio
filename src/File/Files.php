@@ -51,7 +51,7 @@ final readonly class Files
     public function store(Member $actor, UploadedFile $upload, string $id, string $projectId, ?string $taskId): array
     {
         if (!$upload->isValid()) {
-            // Over upload_max_filesize, PHP keeps none of it; set it above 25 MB (backend/README.md)
+            // Over upload_max_filesize, PHP keeps none of it; set it above 25 MB (README.md)
             throw \in_array($upload->getError(), [\UPLOAD_ERR_INI_SIZE, \UPLOAD_ERR_FORM_SIZE], true) ? self::tooLarge() : FileRefused::invalid('The upload did not arrive in one piece. Please try again.');
         }
         if ($upload->getSize() > self::MAX_BYTES) {

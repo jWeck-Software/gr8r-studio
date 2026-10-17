@@ -7,3 +7,7 @@ insert_final_newline = true
 indent_style = space
 indent_size = 2
 trim_trailing_whitespace = true
+
+# The Symfony app (PHP, its YAML config, .htaccess) indents by 4, as Symfony's own files do.
+[{*.php,bin/*,config/**,migrations/**,src/**,tests/**,public/.htaccess,phpunit.dist.xml}]
+indent_size = 4

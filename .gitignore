@@ -7,6 +7,26 @@ __MACOSX/
 .env*
 .scratch/
 .project-map/
-!backend/.env
-!backend/.env.dev
-!backend/.env.test
+
+# The frontend build (npm run build) goes into Symfony's public/, next to index.php and .htaccess.
+/public/index.html
+/public/favicon.svg
+/public/assets/
+
+###> symfony/framework-bundle ###
+!/.env
+!/.env.dev
+!/.env.test
+/.env.local
+/.env.local.php
+/.env.*.local
+/config/secrets/prod/prod.decrypt.private.php
+/public/bundles/
+/var/
+/vendor/
+###< symfony/framework-bundle ###
+
+###> phpunit/phpunit ###
+/phpunit.xml
+/.phpunit.cache/
+###< phpunit/phpunit ###

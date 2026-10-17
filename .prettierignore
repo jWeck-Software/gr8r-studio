@@ -1,4 +1,18 @@
 dist
 node_modules
 package-lock.json
-backend
+# The Symfony app at the root (the frontend is in assets/)
+/bin/
+/config/
+/migrations/
+/public/
+/src/
+/tests/
+/var/
+/vendor/
+/composer.json
+/composer.lock
+/symfony.lock
+/compose.yaml
+/phpunit.dist.xml
+/AGENTS.md

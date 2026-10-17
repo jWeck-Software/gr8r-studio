@@ -8,12 +8,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
+    "build": "VITE_API_URL=api vite build",
+    "build:demo": "vite build --mode demo",
+    "preview": "vite preview --mode demo",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "node --test \"src/**/*.test.js\""
+    "test": "node --test \"assets/src/**/*.test.js\""
   },
   "engines": {
     "node": ">=18"
