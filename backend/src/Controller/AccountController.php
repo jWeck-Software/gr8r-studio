@@ -5,11 +5,13 @@ namespace App\Controller;
 use App\Account\AccountRefused;
 use App\Account\Accounts;
 use App\Account\ChangePassword;
+use App\Account\DeleteWorkspace;
 use App\Account\ForgotPassword;
 use App\Account\ResendVerification;
 use App\Account\ResetPassword;
 use App\Account\SignUp;
 use App\Account\StartWorkspace;
+use App\Entity\Member;
 use App\Entity\User;
 use App\Account\VerifyEmail;
 use App\Security\SignedIn;
@@ -72,6 +74,18 @@ final class AccountController extends AbstractController
     {
         try {
             $accounts->changePassword($user, $body->current, $body->new);
+        } catch (AccountRefused $refused) {
+            return new JsonResponse($refused->body(), $refused->status);
+        }
+
+        return new Response(status: 204);
+    }
+
+    #[Route('/api/workspace', name: 'api_workspace_delete', methods: ['DELETE'])]
+    public function deleteWorkspace(Member $member, #[MapRequestPayload(acceptFormat: 'json')] DeleteWorkspace $body, Accounts $accounts): Response
+    {
+        try {
+            $accounts->deleteWorkspace($member, $body->name);
         } catch (AccountRefused $refused) {
             return new JsonResponse($refused->body(), $refused->status);
         }

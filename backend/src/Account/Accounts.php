@@ -2,10 +2,12 @@
 
 namespace App\Account;
 
+use App\Access\WorkspaceAccess;
 use App\Entity\Member;
 use App\Entity\Team;
 use App\Entity\User;
 use App\Entity\Workspace;
+use App\File\Files;
 use App\Persistence\Transaction;
 use App\Repository\MemberRepository;
 use App\Security\PasswordPolicy;
@@ -38,6 +40,8 @@ final readonly class Accounts
         private LoggerInterface $logger,
         private UserPasswordHasherInterface $hasher,
         private MemberRepository $members,
+        private WorkspaceAccess $access,
+        private Files $files,
         #[Autowire('%env(APP_FRONTEND_URL)%')]
         private string $frontendUrl,
     ) {
@@ -230,6 +234,35 @@ final readonly class Accounts
             $this->em->flush();
 
             return $owner;
+        });
+    }
+
+    /**
+     * Deletes the actor's Workspace with everything in it, when they are its Owner and confirm with
+     * its exact name. Its Members' Users stay, without a Workspace: their next request is
+     * 403 `no_workspace`, as for a removed Member.
+     *
+     * @throws AccountRefused when the actor is no Owner, or the name is not the Workspace's
+     */
+    public function deleteWorkspace(Member $actor, string $name): void
+    {
+        $refusal = $this->access->whyNotDeleteWorkspace($actor);
+        if (null !== $refusal) {
+            throw AccountRefused::forbidden($refusal);
+        }
+        if ($name !== $actor->getWorkspace()->getName()) {
+            throw AccountRefused::notTheName($actor->getWorkspace()->getName());
+        }
+        $this->transaction->run(function () use ($actor): void {
+            $ws = $actor->getWorkspace();
+            $id = (int) $ws->getId();
+            // Everything else of the Workspace goes with it (ON DELETE CASCADE); the links of its open Invites name only a Member's id.
+            foreach ($this->em->getRepository(Member::class)->findBy(['workspace' => $ws]) as $member) {
+                $this->tokens->revoke(Purpose::Invite, $member->getId());
+            }
+            $this->em->remove($ws);
+            $this->em->flush();
+            $this->transaction->afterCommit(fn () => $this->files->forgetWorkspace($id));
         });
     }
 

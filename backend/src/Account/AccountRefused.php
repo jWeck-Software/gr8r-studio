@@ -2,7 +2,7 @@
 
 namespace App\Account;
 
-/** What the server refuses about signing up, verifying, passwords or starting a Workspace, with the reason to show. */
+/** What the server refuses about signing up, verifying, passwords, or starting or deleting a Workspace, with the reason to show. */
 final class AccountRefused extends \RuntimeException
 {
     private function __construct(
@@ -53,6 +53,18 @@ final class AccountRefused extends \RuntimeException
     public static function urlTaken(string $url): self
     {
         return new self(422, 'invalid', \sprintf('The Workspace URL "%s" is taken.', $url));
+    }
+
+    /** The actor may not do this to the Workspace (WorkspaceAccess). */
+    public static function forbidden(string $message): self
+    {
+        return new self(403, 'forbidden', $message);
+    }
+
+    /** Deleting the Workspace is confirmed with its name, exactly. */
+    public static function notTheName(string $name): self
+    {
+        return new self(422, 'invalid', \sprintf('Type the Workspace\'s name, "%s", to delete it.', $name));
     }
 
     /** Starting a Workspace as a Member of one; switching Workspaces is out of scope. */

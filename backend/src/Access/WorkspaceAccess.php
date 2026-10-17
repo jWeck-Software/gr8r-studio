@@ -8,8 +8,8 @@ use Doctrine\ORM\EntityManagerInterface;
 /**
  * Who may change the Workspace's people and settings: Members' Roles and Teams, Invites, removing
  * Members, Teams, and the Workspace's name and colour. Owners and Admins manage them; changing an
- * Owner's Role is the Owners' own business, and a Workspace always keeps one Owner. Everyone edits
- * their own name, title and avatar colour.
+ * Owner's Role is the Owners' own business, as deleting the Workspace is, and a Workspace always
+ * keeps one Owner. Everyone edits their own name, title and avatar colour.
  *
  * Every refusal comes back as the reason to show, null when the change is allowed, so the sync
  * handlers ask here and the rules live in one place (as ProjectAccess does for Projects).
@@ -36,6 +36,12 @@ final readonly class WorkspaceAccess
         }
 
         return 'Owner' === $role && 'Owner' !== $actor->getRole() ? self::OWNERS_ONLY : null;
+    }
+
+    /** Why the actor may not delete the Workspace, or null when they may: only its Owners do. */
+    public function whyNotDeleteWorkspace(Member $actor): ?string
+    {
+        return 'Owner' === $actor->getRole() ? null : 'Only an Owner deletes the Workspace.';
     }
 
     /**
