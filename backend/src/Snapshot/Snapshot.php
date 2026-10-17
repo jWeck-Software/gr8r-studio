@@ -3,6 +3,7 @@
 namespace App\Snapshot;
 
 use App\Access\ProjectAccess;
+use App\Entity\Activity;
 use App\Entity\Comment;
 use App\Entity\Member;
 use App\Entity\Project;
@@ -49,7 +50,7 @@ final readonly class Snapshot
                 'tasks' => self::inCreationOrder($tasks),
                 'projOrder' => array_values(array_intersect($ws->getProjOrder(), $visible)),
                 'comments' => $this->comments($visibleTasks),
-                'activity' => [],
+                'activity' => $this->activity($member, $visible),
                 'notifs' => [],
                 'files' => [],
                 'events' => [],
@@ -76,6 +77,23 @@ final readonly class Snapshot
         $comments = $this->em->getRepository(Comment::class)->findBy(['task' => $tasks], ['at' => 'ASC', 'id' => 'ASC']);
 
         return array_map(static fn (Comment $c): array => $c->toRecord(), $comments);
+    }
+
+    /**
+     * The Activity about the visible Projects and about no Project at all, newest first, as the
+     * frontend puts new entries first. Entries about a deleted Project are left out with it.
+     *
+     * @param list<string> $visibleProjects
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function activity(Member $member, array $visibleProjects): array
+    {
+        $entries = $this->em->createQuery('SELECT a FROM '.Activity::class.' a WHERE a.workspace = :ws AND (a.project IS NULL OR a.project IN (:visible)) ORDER BY a.at DESC, a.id DESC')
+            ->setParameters(['ws' => $member->getWorkspace(), 'visible' => $visibleProjects])
+            ->getResult();
+
+        return array_map(static fn (Activity $a): array => $a->toRecord(), $entries);
     }
 
     /**

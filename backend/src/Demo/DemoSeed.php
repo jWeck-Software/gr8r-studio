@@ -2,6 +2,7 @@
 
 namespace App\Demo;
 
+use App\Entity\Activity;
 use App\Entity\Comment;
 use App\Entity\Member;
 use App\Entity\Project;
@@ -16,7 +17,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  * The demo Workspace "Gr8r Studio", ported from the frontend's src/data/seed.js with
  * dates relative to today. Every active Member gets a User with the demo password.
  *
- * Not yet seeded (their tickets add them): Teams, Activity, Notifications,
+ * Not yet seeded (their tickets add them): Teams, Notifications,
  * Files, Events and Saved views.
  */
 final class DemoSeed
@@ -45,6 +46,7 @@ final class DemoSeed
             $projects = $this->projects($ws, $members['m1']);
             $tasks = $this->tasks($ws, $projects, $members);
             $this->comments($ws, $tasks);
+            $this->activity($ws);
         });
         $this->em->clear();
     }
@@ -356,6 +358,28 @@ final class DemoSeed
             $comment = new Comment($id, $ws);
             $comment->update(['by' => $by, 'at' => $this->minsAgo($minsAgo), 'text' => $text, 're' => $re], $tasks[$task]);
             $this->em->persist($comment);
+        }
+    }
+
+    private function activity(Workspace $ws): void
+    {
+        $rows = [
+            ['m2', 'moved', 't3', 'p1', 38, 'to Review'],
+            ['m3', 'completed', 't18', 'p1', 90, ''],
+            ['m4', 'commented on', 't19', 'p2', 140, ''],
+            ['m1', 'changed priority of', 't9', 'p1', 180, 'to Urgent'],
+            ['m6', 'added a file to', 't14', 'p1', 260, ''],
+            ['m5', 'created', 't30', 'p3', 330, ''],
+            ['m2', 'assigned', 't8', 'p1', 420, 'to Sarah Chen'],
+            ['m7', 'completed', 't23', 'p2', 1300, ''],
+            ['m3', 'moved', 't24', 'p2', 1500, 'to Review'],
+            ['m1', 'created project', null, 'p4', 30000, ''],
+            ['m2', 'created project', null, 'p1', 43000, ''],
+            ['m4', 'completed', 't41', 'p5', 5600, ''],
+            ['m5', 'completed', 't17', 'p1', 7200, ''],
+        ];
+        foreach ($rows as $i => [$by, $verb, $task, $project, $minsAgo, $extra]) {
+            $this->em->persist(new Activity('a'.($i + 1), $ws, $by, $verb, $task, $project, $this->minsAgo($minsAgo), $extra));
         }
     }
 

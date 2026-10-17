@@ -92,6 +92,21 @@ final class WorkspaceIsolationTest extends ApiTestCase
         self::assertNotContains('cac1', array_column($this->getJson('/api/bootstrap')['data']['comments'], 'id'));
     }
 
+    public function testActivityStaysInItsWorkspace(): void
+    {
+        $this->signIn('ada@acme.test', 'acme-password');
+        $entry = ['id' => 'aac1', 'by' => 'mac1', 'verb' => 'created', 'task' => 'tac1', 'project' => 'pac1', 'at' => 1792238400000, 'extra' => ''];
+        $this->postJson('/api/sync', ['ops' => [['op' => 'put', 'type' => 'activity', 'id' => 'aac1', 'data' => $entry]]]);
+        self::assertResponseStatusCodeSame(200);
+        $this->client->request('POST', '/api/logout');
+        $this->signIn();
+
+        $reused = $this->postJson('/api/sync', ['ops' => [['op' => 'put', 'type' => 'activity', 'id' => 'aac1', 'data' => [...$entry, 'task' => 't4', 'project' => 'p1']]]]);
+
+        self::assertSame(['error' => 'invalid', 'op' => 0, 'message' => 'The id "aac1" is already used.'], $reused);
+        self::assertNotContains('aac1', array_column($this->getJson('/api/bootstrap')['data']['activity'], 'id'));
+    }
+
     /**
      * @param array<string, mixed> $changes
      *

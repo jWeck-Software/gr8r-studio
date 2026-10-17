@@ -73,6 +73,14 @@ health and login answers `401 {"error":"unauthenticated"}`.
   `App\Sync\CollectionHandler`, a new singleton (`set`, like `projOrder`) one implementing
   `App\Sync\SingletonHandler`. When a new Task brings a key already taken in its Project, the
   server renumbers it and the answer says so: `{"ok": true, "keys": {"<taskId>": "WEB-207"}}`.
+- `src/Sync/Handler/CommentHandler.php`: a new Comment is the signed-in Member's whatever the
+  client sends; on someone else's Comment a Member may only add or remove their own id in the
+  Reactions (`re`), and only the author deletes it. Anyone who sees the Task may comment, Guests
+  included. Deleting a Task or a Project deletes its Comments.
+- `src/Sync/Handler/ActivityHandler.php`: Activity is append-only. A new entry is the signed-in
+  Member's; putting an id that exists changes nothing, and `delete` is accepted and ignored (undo
+  in the frontend restores S.data as it was and so sends deletes). Entries about a deleted Task or
+  Project stay, but bootstrap shows only those about visible Projects or about no Project.
 - `src/Access/ProjectAccess.php`: who sees and changes which Projects (Private projects, Guests);
   used by the snapshot and by every handler.
 - `src/Demo/DemoSeed.php`: the demo Workspace, ported from `src/data/seed.js`.

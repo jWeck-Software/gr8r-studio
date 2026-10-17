@@ -114,9 +114,13 @@ final class GuestsTest extends ApiTestCase
 
     public function testAGuestSeesOnlyTheCommentsAndActivityOfTheirProjects(): void
     {
+        $this->sync([['op' => 'put', 'type' => 'activity', 'id' => 'ax7k2m9', 'data' => ['id' => 'ax7k2m9', 'by' => 'mg1', 'verb' => 'signed in', 'task' => null, 'project' => null, 'at' => 1792238400000, 'extra' => '']]]);
+        self::assertResponseStatusCodeSame(200);
+
         $data = $this->getJson('/api/bootstrap')['data'];
 
         self::assertSame(['c8'], array_column($data['comments'], 'id'));
+        self::assertSame(['ax7k2m9', 'a6'], array_column($data['activity'], 'id'));
     }
 
     /** @param list<array<string, mixed>> $ops */
