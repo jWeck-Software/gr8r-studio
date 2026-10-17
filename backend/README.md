@@ -53,14 +53,14 @@ php bin/phpunit
 
 ## Endpoints
 
-| Endpoint              | Purpose                                                             |
-| --------------------- | ------------------------------------------------------------------- |
-| `GET /api/health`     | `{"status":"ok"}`, no sign-in needed                                |
-| `POST /api/login`     | `{email, password}` → `{user:{email,name}, member}` + session cookie |
-| `POST /api/logout`    | `204`, ends the session                                             |
-| `GET /api/me`         | same body as login, or `401`                                        |
-| `GET /api/bootstrap`  | `{data, prefs, views}` for the signed-in Member                     |
-| `POST /api/sync`      | `{"ops": [{op, type, id?, data?}]}` → `{"ok": true}`, `422` or `403` |
+| Endpoint             | Purpose                                                                                |
+| -------------------- | -------------------------------------------------------------------------------------- |
+| `GET /api/health`    | `{"status":"ok"}`, no sign-in needed                                                   |
+| `POST /api/login`    | `{email, password}` → `{user:{email,name}, member}` + session cookie                   |
+| `POST /api/logout`   | `204`, ends the session                                                                |
+| `GET /api/me`        | same body as login, or `401`; `403 no_workspace` when the User is no Member (any more) |
+| `GET /api/bootstrap` | `{data, prefs, views}` for the signed-in Member; `403 no_workspace` as for `/api/me`   |
+| `POST /api/sync`     | `{"ops": [{op, type, id?, data?}]}` → `{"ok": true}`, `422` or `403`                   |
 
 Errors answer as `{"error": "<code>", "message": "…"}`; without a session every endpoint except
 health and login answers `401 {"error":"unauthenticated"}`.
@@ -95,4 +95,17 @@ health and login answers `401 {"error":"unauthenticated"}`.
   what they can still see.
 - `src/Access/ProjectAccess.php`: who sees and changes which Projects (Private projects, Guests);
   used by the snapshot and by every handler.
+- `src/Access/WorkspaceAccess.php`: who manages people, Teams and the Workspace's settings. Owners
+  and Admins change Roles and Teams, invite, remove Members, manage Teams and rename or recolour the
+  Workspace; only an Owner changes an Owner's Role, makes someone an Owner or removes an Owner; the
+  Workspace keeps at least one Owner and nobody removes themselves. Everyone, Guests included,
+  changes only their own name, title and avatar colour (`c`).
+- `src/Sync/Handler/MemberHandler.php`: a put of an id the Workspace doesn't have is an Invite: the
+  Member is stored as `invited`, without a User. Email, status, last active and time zone are the
+  server's; what a put sends for them is ignored. Removing a Member unassigns their Tasks and drops
+  them from every Project's Members and lead; their favorites go with them, and their User stays
+  without a Workspace (`403 no_workspace`).
+- `src/Sync/Handler/TeamHandler.php`, `WorkspaceSettingsHandler.php`: Teams, and the `ws` singleton
+  (name, URL slug like `gr8r-studio`, colour `#RRGGBB`). Deleting a Team leaves its Members and
+  Projects without one (`team: ""`).
 - `src/Demo/DemoSeed.php`: the demo Workspace, ported from `src/data/seed.js`.

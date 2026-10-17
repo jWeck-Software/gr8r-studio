@@ -69,9 +69,12 @@ Where this backend knowingly departs from the conventions above, and why:
   only the sync envelope (`App\Sync\Batch`, `{ops: [...]}`). The records inside the ops keep the
   frontend's shape (ADR 0002), differ per collection, and are checked against what is stored (what a
   Member may change); each handler reads them through `Fields`, which names the field in the 422.
-- **Access is `App\Access\ProjectAccess`, a service, not voters.** The snapshot filters whole lists
-  (Projects, Tasks, Comments, Activity) down to what a Member sees; voters decide one subject at a
-  time. The snapshot and every sync handler ask `ProjectAccess`, so the rules live in one place.
+- **Access is `App\Access\ProjectAccess` and `App\Access\WorkspaceAccess`, services, not voters.**
+  The snapshot filters whole lists (Projects, Tasks, Comments, Activity) down to what a Member sees;
+  voters decide one subject at a time. The snapshot and every sync handler ask `ProjectAccess`
+  (Projects and what is inside them) or `WorkspaceAccess` (Roles, Teams, Invites, removing Members,
+  Workspace settings), so the rules live in one place each. `WorkspaceAccess` answers with the
+  reason for a refusal, which the handler sends as the 403's message.
 - **The sign-in body is read by the firewall's `json_login`** (as the spec says), not by
   `#[MapRequestPayload]`; `AuthController::login` only answers what `json_login` doesn't take.
 - **Numbering Tasks locks the Project row (`FOR UPDATE`), not `symfony/lock`.** The lock has to last
