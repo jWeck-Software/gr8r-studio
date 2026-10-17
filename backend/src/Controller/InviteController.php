@@ -15,6 +15,16 @@ use Symfony\Component\Routing\Attribute\Route;
 
 final class InviteController extends AbstractController
 {
+    #[Route('/api/invites/{token}', name: 'api_invite', methods: ['GET'])]
+    public function show(string $token, Invites $invites): JsonResponse
+    {
+        try {
+            return new JsonResponse($invites->describe($token));
+        } catch (InviteRefused $refused) {
+            return new JsonResponse($refused->body(), $refused->status);
+        }
+    }
+
     /** Accepting signs the person in as the Member they were invited as, with the same body as /api/login. */
     #[Route('/api/invites/{token}/accept', name: 'api_invite_accept', methods: ['POST'])]
     public function accept(string $token, #[MapRequestPayload(acceptFormat: 'json')] AcceptInvite $body, Invites $invites, Security $security, SignedIn $signedIn): Response

@@ -56,6 +56,27 @@ final readonly class Invites
     }
 
     /**
+     * What the page behind the link shows before the invited person joins: their email address,
+     * the name they were invited under, the Workspace's name, and whether the address has an
+     * account already (then they join with its password).
+     *
+     * @return array{email: string, name: string, workspace: string, account: bool}
+     *
+     * @throws InviteRefused when the link does not lead into the Workspace (any more)
+     */
+    public function describe(string $token): array
+    {
+        $member = $this->open($token)->getMember();
+
+        return [
+            'email' => $member->getEmail(),
+            'name' => $member->getName(),
+            'workspace' => $member->getWorkspace()->getName(),
+            'account' => null !== $this->em->getRepository(User::class)->findOneBy(['email' => $member->getEmail()]),
+        ];
+    }
+
+    /**
      * Accepts the Invite whose link holds this token: the invited person becomes a User with this
      * name and password, and their Member is active under that name. The link stops working.
      * When their email address has a User already, the password has to be that User's; it stays.
@@ -65,10 +86,7 @@ final readonly class Invites
     public function accept(string $token, string $name, string $password): User
     {
         return $this->transaction->run(function () use ($token, $name, $password): User {
-            $invite = $this->em->getRepository(Invite::class)->findOneBy(['tokenHash' => hash('sha256', $token)]) ?? throw InviteRefused::unknown();
-            if ($invite->getExpiresAt() <= $this->clock->now()) {
-                throw InviteRefused::expired();
-            }
+            $invite = $this->open($token);
             $member = $invite->getMember();
             $user = $this->user($member->getEmail(), $name, $password);
             $member->join($user, $name);
@@ -77,6 +95,17 @@ final readonly class Invites
 
             return $user;
         });
+    }
+
+    /** The open Invite whose link holds this token. */
+    private function open(string $token): Invite
+    {
+        $invite = $this->em->getRepository(Invite::class)->findOneBy(['tokenHash' => hash('sha256', $token)]) ?? throw InviteRefused::unknown();
+        if ($invite->getExpiresAt() <= $this->clock->now()) {
+            throw InviteRefused::expired();
+        }
+
+        return $invite;
     }
 
     /**

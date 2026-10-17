@@ -64,6 +64,35 @@ final class InvitesTest extends ApiTestCase
         self::assertSame('mq7x2', $this->signIn('ana@gr8rstudio.com', 'ana-password-1')['member']);
     }
 
+    /** What the page behind the link shows before Ana joins: who is invited where, and that she has no account yet. */
+    public function testTheLinkTellsWhoIsInvitedWhere(): void
+    {
+        $this->signIn('sarah@gr8rstudio.com');
+        $this->invite();
+        $token = $this->token();
+        $this->client->request('POST', '/api/logout');
+
+        $body = $this->getJson('/api/invites/'.$token);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame(['email' => 'ana@gr8rstudio.com', 'name' => 'Ana', 'workspace' => 'Gr8r Studio', 'account' => false], $body);
+    }
+
+    public function testTheLinkTellsEmmaSheHasAnAccount(): void
+    {
+        $token = $this->inviteEmmaAgain();
+
+        self::assertTrue($this->getJson('/api/invites/'.$token)['account']);
+    }
+
+    public function testAnUnknownLinkTellsNothing(): void
+    {
+        $body = $this->getJson('/api/invites/'.str_repeat('x', 43));
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame('not_found', $body['error']);
+    }
+
     public function testTheLinkWorksOnce(): void
     {
         $this->signIn('sarah@gr8rstudio.com');
