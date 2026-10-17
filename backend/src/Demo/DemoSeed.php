@@ -56,8 +56,9 @@ final class DemoSeed
 
     private function purge(): void
     {
-        $this->em->createQuery('DELETE FROM '.Workspace::class.' w WHERE w.url = :url')
-            ->execute(['url' => self::WORKSPACE_URL]);
+        // The demo Members' Workspace too, which may have been renamed since it was seeded.
+        $this->em->createQuery('DELETE FROM '.Workspace::class.' w WHERE w.url = :url OR w.id IN (SELECT IDENTITY(m.workspace) FROM '.Member::class.' m WHERE m.email LIKE :domain)')
+            ->execute(['url' => self::WORKSPACE_URL, 'domain' => '%@gr8rstudio.com']);
         $this->em->createQuery('DELETE FROM '.User::class.' u WHERE u.email LIKE :domain')
             ->execute(['domain' => '%@gr8rstudio.com']);
     }
