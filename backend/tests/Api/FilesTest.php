@@ -286,6 +286,43 @@ final class FilesTest extends ApiTestCase
         self::assertSame('not_found', $body['error']);
     }
 
+    public function testAFilePutForAnIdTheServerDoesNotHaveChangesNothing(): void
+    {
+        $body = $this->sync([['op' => 'put', 'type' => 'files', 'id' => 'fghost', 'data' => ['id' => 'fghost', 'project' => 'p1', 'name' => 'ghost.pdf', 'type' => 'pdf', 'size' => '1 KB', 'by' => 'm1', 'at' => self::NOW, 'task' => null]]]);
+
+        self::assertSame(['ok' => true], $body);
+        self::assertNull($this->file('fghost'));
+    }
+
+    /** Undo puts back S.data as it was: the Task and the Files it had, whose content is gone. */
+    public function testUndoingATaskDeleteBringsTheTaskBackWithoutItsDeletedFiles(): void
+    {
+        $data = $this->getJson('/api/bootstrap')['data'];
+        $t3 = array_column($data['tasks'], null, 'id')['t3'];
+        $files = array_values(array_filter($data['files'], static fn (array $f): bool => 't3' === $f['task']));
+        $this->sync([['op' => 'delete', 'type' => 'tasks', 'id' => 't3']]);
+
+        $body = $this->sync([
+            ['op' => 'put', 'type' => 'tasks', 'id' => 't3', 'data' => $t3],
+            ...array_map(static fn (array $f): array => ['op' => 'put', 'type' => 'files', 'id' => $f['id'], 'data' => $f], $files),
+        ]);
+
+        self::assertSame(['ok' => true], $body);
+        self::assertSame(['f1', 'f2'], array_column($files, 'id'));
+        self::assertSame([], $this->task('t3')['attachments']);
+        self::assertNull($this->file('f1'));
+    }
+
+    public function testATaskMovedToAnotherProjectTakesItsFilesAlong(): void
+    {
+        $this->upload('notes.txt', 'hello', ['id' => 'fup1', 'project' => 'p1', 'task' => 't4']);
+
+        $this->sync([['op' => 'put', 'type' => 'tasks', 'id' => 't4', 'data' => [...$this->task('t4'), 'project' => 'p2', 'key' => 'MOB-901']]]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame(['p2', 't4'], [$this->file('fup1')['project'], $this->file('fup1')['task']]);
+    }
+
     /**
      * @param array<mixed> $ops
      *

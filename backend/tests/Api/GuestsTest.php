@@ -204,6 +204,22 @@ final class GuestsTest extends ApiTestCase
         self::assertNull($this->record('files', 'fg1'));
     }
 
+    public function testAGuestDownloadsTheFilesOfTheirProjectButRenamesAndDeletesNone(): void
+    {
+        $f11 = $this->record('files', 'f11');
+        $this->client->request('GET', '/api/files/f11/content');
+        self::assertResponseStatusCodeSame(200);
+
+        foreach ([['op' => 'put', 'type' => 'files', 'id' => 'f11', 'data' => [...$f11, 'name' => 'mine.pdf']], ['op' => 'delete', 'type' => 'files', 'id' => 'f11']] as $op) {
+            $body = $this->sync([$op]);
+
+            self::assertResponseStatusCodeSame(403);
+            self::assertSame(['error' => 'forbidden', 'op' => 0, 'message' => 'You may not change the File "f11".'], $body);
+        }
+        self::assertSame('campaign-brief.pdf', $this->record('files', 'f11')['name']);
+        self::assertSame(['f11'], array_column($this->getJson('/api/bootstrap')['data']['files'], 'id'));
+    }
+
     private function arrangeGuest(): void
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);

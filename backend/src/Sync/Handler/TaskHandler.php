@@ -97,11 +97,16 @@ final readonly class TaskHandler implements CollectionHandler
         if (null !== $deleted) {
             $this->em->remove($deleted);
         }
+        $moved = null !== $task && $task->getProject() !== $project;
         if (null === $task) {
             $task = new Task($id, $ws);
             $this->em->persist($task);
         }
         $task->update($record, $project, $assignee);
+        if ($moved) {
+            // Its Files go along, so they are seen by exactly those who see the Task.
+            $this->files->followTask($task);
+        }
         $actor->star('tasks', $id, $fav);
         $this->notifier->taskPut($actor, $old, $task);
 

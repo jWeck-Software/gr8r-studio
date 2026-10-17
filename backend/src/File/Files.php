@@ -151,6 +151,14 @@ final readonly class Files
         }
     }
 
+    /** Moves the Files attached to the Task into its Project, after the Task moved. */
+    public function followTask(Task $task): void
+    {
+        foreach ($this->em->getRepository(File::class)->findBy(['task' => $task]) as $file) {
+            $file->moveTo($task->getProject());
+        }
+    }
+
     /** Stores the File's content as it is, outside any transaction: for the demo seed. */
     public function putContent(File $file, string $bytes): void
     {
