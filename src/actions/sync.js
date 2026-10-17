@@ -1,12 +1,16 @@
 /* =====================================================================
    SYNC (backend mode): the signed-in session and the Workspace on the server.
-   Callers need seven calls: resumeSession() at boot, and signIn() from the login form,
+   Callers need nine calls: resumeSession() at boot, and signIn() from the login form,
    acceptInvite() from the page an Invite email links to (#join/<token>), verifyEmail() from the one
-   a verification email links to (#verify/<token>), startWorkspace() at the end of onboarding,
-   signOut() and flush() (before an upload, which names a Task the server must know), which reach
-   this module through store.js (onSession). A User signed in without a Workspace (just verified,
-   or removed from theirs) has nothing to load: signIn(), verifyEmail() and resumeSession() say so,
-   and the caller sends them to onboarding, whose startWorkspace() makes one and loads it. Everything else happens on its own: every debounced save() diffs the synced
+   a verification email links to (#verify/<token>), resetPassword() from the one a password reset
+   email links to (#reset/<token>), startWorkspace() at the end of onboarding, deleteWorkspace()
+   from the settings, signOut() and flush() (before an upload, which names a Task the server must
+   know), which reach this module through store.js (onSession). A User signed in without a Workspace
+   (just verified, or removed from theirs) has nothing to load: signIn(), verifyEmail(),
+   resetPassword() and resumeSession() say so, and the caller sends them to onboarding, whose
+   startWorkspace() makes one and loads it. When the Workspace goes while signed in (deleted by its
+   Owner, or the Member removed), the next sync or refresh is 403 no_workspace: the sync stops and
+   onboarding opens (workspaceGone()), as it does for the Owner who deleted it. Everything else happens on its own: every debounced save() diffs the synced
    collections, and the Member's Preferences and view settings beside S.data (syncState), against
    the copy the server last confirmed and posts the ops, one request at a time. When the server
    keeps no Preferences or view settings for the Member yet, the sign-in keeps this browser's and
@@ -28,6 +32,7 @@ import { DEFAULT_PREFS, S, me, onSave, onSession, ownPrefs, prefsOwnerIs, task }
 import { toast } from '../ui/toast.js';
 import { render } from '../shell/render.js';
 import { blankView } from '../shell/view-engine.js';
+import { beginOnboarding } from './actions.js';
 
 let synced = null; // what the server last confirmed, as a deep copy; null while signed out
 let session = 0; // bumped on every sign-in and sign-out, so late answers of an old session are dropped
@@ -85,6 +90,20 @@ async function verifyEmail(token) {
   const { member } = await api.verifyEmail(token);
   if (member) await enter(member);
   return member;
+}
+
+/** Sets a new password with the token of a reset link, which signs in; resolves like signIn(). */
+async function resetPassword(token, password) {
+  await signingOut;
+  const { member } = await api.resetPassword(token, password);
+  if (member) await enter(member);
+  return member;
+}
+
+/** Deletes the signed-in Owner's Workspace, and leaves it as everyone in it does (workspaceGone()). Rejects with an ApiError. */
+async function deleteWorkspace(name) {
+  await api.deleteWorkspace(name);
+  workspaceGone();
 }
 
 /** Starts the signed-in User's Workspace as its Owner and loads it. Rejects with an ApiError (422: the URL is taken). */
@@ -210,6 +229,7 @@ function refresh(mayApply) {
       render();
     } catch (e) {
       if (s === session && e.status === 401) sessionEnded();
+      else if (s === session && e.code === 'no_workspace') workspaceGone(GONE);
       /* otherwise unreachable now: the next focus or poll tries again */
     }
   })().finally(() => (refreshing = null));
@@ -253,7 +273,8 @@ async function send() {
     failing = false;
   } catch (e) {
     if (s !== session) return;
-    if (e.status === 403 || e.status === 422) await reloadAfterRefusal(e.message);
+    if (e.code === 'no_workspace') workspaceGone(GONE);
+    else if (e.status === 403 || e.status === 422) await reloadAfterRefusal(e.message);
     else if (e.status === 401) sessionEnded();
     else if (!failing) {
       // Offline or a server error: `synced` stays put, so the next diff still holds these changes.
@@ -296,6 +317,22 @@ function dropVanished() {
   for (const id of S.ui.sel) if (!task(id)) S.ui.sel.delete(id);
 }
 
+/* The signed-in User is no Member of a Workspace any more: it was deleted, or they were removed (403 no_workspace).
+   Nothing is left to sync into or to send later; still signed in, they go on to onboarding to start one of their own. */
+function workspaceGone(message) {
+  unwatch();
+  synced = null;
+  leftover = null;
+  session++;
+  S.ui.drawer = null;
+  S.ui.modals = [];
+  S.ui.pop = null;
+  beginOnboarding();
+  render();
+  if (message) toast(message, { kind: 'info', ms: 8000 });
+}
+const GONE = 'You are no longer a Member of this Workspace: it was deleted, or you were removed from it.';
+
 function sessionEnded() {
   keepLeftover();
   unwatch();
@@ -311,6 +348,6 @@ function sessionEnded() {
 
 if (BACKEND) {
   onSave(push);
-  onSession({ signIn, signOut, acceptInvite, verifyEmail, startWorkspace, resume: resumeSession, flush: settle });
+  onSession({ signIn, signOut, acceptInvite, verifyEmail, resetPassword, startWorkspace, deleteWorkspace, resume: resumeSession, flush: settle });
   addEventListener('online', push);
 }

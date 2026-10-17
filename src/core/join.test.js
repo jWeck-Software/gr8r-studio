@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { joinToken, verifyToken } from './join.js';
+import { joinToken, resetToken, verifyToken } from './join.js';
 
 test('an Invite link opens the app at #join/<token>', () => {
   assert.equal(joinToken('#join/xkjG24V-a_-3k-Q_pXkRd5nzzurTgAUqP4X_T5vvanA'), 'xkjG24V-a_-3k-Q_pXkRd5nzzurTgAUqP4X_T5vvanA');
@@ -25,4 +25,15 @@ test('the verify screen itself and any other address are no verification link', 
   assert.equal(verifyToken('#join/xkjG24V'), null);
   assert.equal(verifyToken('#verify/abc/def'), null);
   assert.equal(verifyToken(''), null);
+});
+
+test('a password reset link opens the app at #reset/<token>', () => {
+  assert.equal(resetToken('#reset/xkjG24V-a_-3k-Q_pXkRd5nzzurTgAUqP4X_T5vvanA'), 'xkjG24V-a_-3k-Q_pXkRd5nzzurTgAUqP4X_T5vvanA');
+});
+
+test('the reset screen itself and any other address are no password reset link', () => {
+  assert.equal(resetToken('#reset'), null);
+  assert.equal(resetToken('#reset/'), null);
+  assert.equal(resetToken('#verify/xkjG24V'), null);
+  assert.equal(resetToken(''), null);
 });

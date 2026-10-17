@@ -63,6 +63,12 @@ export const api = {
   signUp: (name, email, password) => call('POST', '/signup', { name, email, password }),
   verifyEmail: token => call('POST', '/verify-email', { token }),
   resendVerification: email => call('POST', '/verify-email/resend', { email }),
+  forgotPassword: email => call('POST', '/password/forgot', { email }),
+  /** Sets a new password with the link's token, which signs in; resolves with /api/me's body. */
+  resetPassword: (token, password) => call('POST', '/password/reset', { token, password }),
+  changePassword: (current, next) => call('POST', '/me/password', { current, new: next }),
+  /** Deletes the signed-in Owner's Workspace; `name` must be its name, as typed to confirm. */
+  deleteWorkspace: name => call('DELETE', '/workspace', { name }),
   /** Starts a Workspace whose Owner the signed-in User (who has none) becomes; resolves with /api/me's body. */
   startWorkspace: (name, url, c) => call('POST', '/workspaces', { name, url, c }),
   bootstrap: () => call('GET', '/bootstrap'),

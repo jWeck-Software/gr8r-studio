@@ -3,6 +3,7 @@ import { esc } from '../core/utils.js';
 import { LOGO, ic } from '../core/icons.js';
 import { D, S } from '../core/store.js';
 import { effectiveDark } from '../core/theme.js';
+import { BACKEND } from '../core/api.js';
 import { TEMPLATES } from '../overlays/modals.js';
 import { strengthMeter } from './settings.js';
 
@@ -54,15 +55,17 @@ export function renderAuth() {
   if (s === 'forgot')
     return authShell(`<form class="auth-card${S.ui.fx.auth ? ' fx-auth' : ''}" data-submit="doForgot" novalidate>
     <div style="display:flex;justify-content:center"><span class="ftype" style="--c:var(--accent);width:44px;height:44px;border-radius:11px">${ic('key-round', 20)}</span></div><h1>Reset your password</h1><p class="sub">Enter your account email and we'll send you a reset link.</p>
+    ${e.forgot ? `<div class="alert danger" role="alert">${ic('circle-alert', 15)}<span>${esc(e.forgot)}</span></div>` : ''}
     <div class="field"><label class="label" for="f-email">Email</label><input class="input input-lg ${icls('email')}" id="f-email" type="email" value="${esc(f.email)}" autocomplete="email">${ferr('email')}</div>
     <button class="btn btn-primary btn-lg btn-block" data-a="doForgot" id="forgot-btn">Send reset link</button>
     <p class="auth-foot"><button type="button" class="link row" style="display:inline-flex;gap:6px" data-a="auth" data-v="login">${ic('arrow-left', 14)}Back to sign in</button></p></form>`);
   if (s === 'forgot-sent')
-    return authShell(`<div class="auth-card${S.ui.fx.auth ? ' fx-auth' : ''}"><div style="display:flex;justify-content:center"><span class="ftype" style="--c:var(--green);width:44px;height:44px;border-radius:11px">${ic('mail-check', 20)}</span></div><h1>Check your email</h1><p class="sub">We sent a reset link to <b style="color:var(--text)">${esc(f.email)}</b>. It expires in 30 minutes.</p>
-    <button class="btn btn-primary btn-lg btn-block" data-a="auth" data-v="reset">Open reset link</button><div class="alert info">${ic('info', 14)}<span>In this prototype, the button above stands in for the link in your email.</span></div>
+    return authShell(`<div class="auth-card${S.ui.fx.auth ? ' fx-auth' : ''}"><div style="display:flex;justify-content:center"><span class="ftype" style="--c:var(--green);width:44px;height:44px;border-radius:11px">${ic('mail-check', 20)}</span></div><h1>Check your email</h1><p class="sub">${BACKEND ? 'If there is an account for' : 'We sent a reset link to'} <b style="color:var(--text)">${esc(f.email)}</b>${BACKEND ? ', we sent a reset link to it' : ''}. It expires in 30 minutes.</p>
+    ${BACKEND ? '' : `<button class="btn btn-primary btn-lg btn-block" data-a="auth" data-v="reset">Open reset link</button><div class="alert info">${ic('info', 14)}<span>In this prototype, the button above stands in for the link in your email.</span></div>`}
     <p class="auth-foot">Didn't get it? <button class="link" data-a="resend" data-v="reset">Resend email</button></p><p class="auth-foot"><button class="link row" style="display:inline-flex;gap:6px" data-a="auth" data-v="login">${ic('arrow-left', 14)}Back to sign in</button></p></div>`);
   if (s === 'reset')
-    return authShell(`<form class="auth-card${S.ui.fx.auth ? ' fx-auth' : ''}" data-submit="doReset" novalidate><div style="display:flex;justify-content:center">${LOGO(30)}</div><h1>Choose a new password</h1><p class="sub">for ${esc(f.email)}</p>
+    return authShell(`<form class="auth-card${S.ui.fx.auth ? ' fx-auth' : ''}" data-submit="doReset" novalidate><div style="display:flex;justify-content:center">${LOGO(30)}</div><h1>Choose a new password</h1>${BACKEND ? '' : `<p class="sub">for ${esc(f.email)}</p>`}
+    ${e.reset ? `<div class="alert danger" role="alert">${ic('circle-alert', 15)}<span>${esc(e.reset)}</span></div>` : ''}
     <div class="field"><label class="label" for="r-pw">New password</label><input class="input input-lg ${icls('pw')}" id="r-pw" type="password" data-in="pwStrength" value="${esc(S.ui.pwNew || '')}" autocomplete="new-password">${strengthMeter(S.ui.pwNew || '')}${ferr('pw')}</div>
     <div class="field"><label class="label" for="r-pw2">Confirm password</label><input class="input input-lg ${icls('pw2')}" id="r-pw2" type="password" autocomplete="new-password">${ferr('pw2')}</div>
     <button class="btn btn-primary btn-lg btn-block" data-a="doReset" id="reset-btn">Reset password</button></form>`);

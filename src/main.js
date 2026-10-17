@@ -57,7 +57,7 @@ import './actions/archive.js';
 import './actions/sync.js';
 import { S, D, verifyEmail } from './core/store.js';
 import { BACKEND, api } from './core/api.js';
-import { joinToken, verifyToken } from './core/join.js';
+import { joinToken, resetToken, verifyToken } from './core/join.js';
 import { A, beginOnboarding } from './actions/actions.js';
 import { resumeSession } from './actions/sync.js';
 import { ROUTE_NAMES, render, go } from './shell/render.js';
@@ -75,6 +75,7 @@ import { ROUTE_NAMES, render, go } from './shell/render.js';
   const authRoutes = ['login', 'signup', 'forgot', 'reset', 'verify', 'onboarding'];
   const token = BACKEND && joinToken(location.hash);
   const verifying = BACKEND && verifyToken(location.hash);
+  const resetting = BACKEND && resetToken(location.hash);
   S.ui.route = S.prefs.home || 'home';
   if (verifying) {
     // The link in a verification email works once: a reload must not open it again.
@@ -96,10 +97,14 @@ import { ROUTE_NAMES, render, go } from './shell/render.js';
     } catch (e) {
       S.ui.join.error = e.message;
     }
+  } else if (resetting) {
+    // The link in a password reset email: choose a new password, whatever session this browser has.
+    S.ui.auth = 'reset';
+    S.ui.reset = { token: resetting };
   } else if (authRoutes.includes(h)) S.ui.auth = h;
   else if (h && ROUTE_NAMES[h]) S.ui.route = h;
   // Backend mode: nothing renders until the server says who is signed in, so the demo data never flashes.
-  if (BACKEND && !token && !verifying) {
+  if (BACKEND && !token && !verifying && !resetting) {
     try {
       const session = await resumeSession();
       if (session === 'out') S.ui.auth ||= 'login';
@@ -116,7 +121,7 @@ import { ROUTE_NAMES, render, go } from './shell/render.js';
 })();
 
 // A link from an email opened in a tab that runs the app already changes only the hash: start over with it.
-if (BACKEND) addEventListener('hashchange', () => (joinToken(location.hash) || verifyToken(location.hash)) && location.reload());
+if (BACKEND) addEventListener('hashchange', () => (joinToken(location.hash) || verifyToken(location.hash) || resetToken(location.hash)) && location.reload());
 
 // Dev-only handle for debugging and screenshot tooling; stripped from production builds.
 if (import.meta.env.DEV) window.__gr8r = { S, D, A, go, render };

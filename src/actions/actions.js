@@ -12,12 +12,14 @@ import {
   allTasks,
   canSee,
   commentsOf,
+  deleteWorkspace,
   logAct,
   me,
   mem,
   proj,
   flushSync,
   save,
+  resetPassword,
   resumeSession,
   signIn,
   signOut,
@@ -2020,7 +2022,6 @@ A.saveWorkspace = () => {
   });
 };
 A.delWorkspace = () =>
-  demoOnly() ||
   confirmDlg({
     title: `Delete ${D().ws.name}?`,
     body: 'Every project, task, file, and comment in this workspace will be permanently deleted for all members.',
@@ -2028,6 +2029,12 @@ A.delWorkspace = () =>
     danger: true,
     typeName: D().ws.name,
     run: () => {
+      // Backend mode: gone for everyone; the Owner, left without a Workspace, can start a new one.
+      if (BACKEND)
+        return deleteWorkspace(D().ws.name).then(
+          () => toast('Workspace deleted', { kind: 'info', ms: 5000 }),
+          err => toast(err.message, { kind: 'err' }),
+        );
       S.data = seed();
       S.views = {};
       save();
@@ -2082,12 +2089,22 @@ A.savePassword = () => {
     render();
     return;
   }
-  loadingBtn('pw-save', 800, () => {
+  const done = () => {
     S.ui.pwDone = true;
     S.ui.pwNew = '';
     render();
     toast('Password updated');
-  });
+  };
+  if (!BACKEND) return loadingBtn('pw-save', 800, done);
+  loadingBtn('pw-save', 0, () =>
+    api.changePassword(cur, nw).then(done, err => {
+      // A wrong current password is 401, a new one the server finds too weak 422; anything else is a toast.
+      if (err.code === 'invalid_credentials') S.ui.errors = { pwCur: err.message };
+      else if (err.status === 422) S.ui.errors = { pwNew: err.message };
+      else toast(err.message, { kind: 'err' });
+      render();
+    }),
+  );
 };
 A.revokeSession = el => {
   mutate(() => {
@@ -2315,7 +2332,12 @@ A.resend = el => {
     // The server answers alike for every address, so the toast says the same.
     if (BACKEND) api.resendVerification(S.ui.af.email).then(sent, err => toast(err.message, { kind: 'err' }));
     else sent();
-  } else toast(`Reset link sent to ${S.ui.af.email}`);
+  } else if (BACKEND)
+    api.forgotPassword(S.ui.af.email).then(
+      () => toast(`Reset link sent to ${S.ui.af.email}`),
+      err => toast(err.message, { kind: 'err' }),
+    );
+  else toast(`Reset link sent to ${S.ui.af.email}`);
 };
 /* Onboarding from its first step: after verifying, or for a User signed in without a Workspace. The caller renders. */
 export function beginOnboarding() {
@@ -2347,10 +2369,18 @@ A.doForgot = () => {
     render();
     return;
   }
-  loadingBtn('forgot-btn', 700, () => {
+  const sent = () => {
     S.ui.auth = 'forgot-sent';
     render();
-  });
+  };
+  if (!BACKEND) return loadingBtn('forgot-btn', 700, sent);
+  // The server answers alike for every address (no account, no email), so the screen says the same.
+  loadingBtn('forgot-btn', 0, () =>
+    api.forgotPassword(em).then(sent, err => {
+      S.ui.errors = { forgot: err.message };
+      render();
+    }),
+  );
 };
 A.doReset = () => {
   const a = $('#r-pw').value,
@@ -2362,11 +2392,36 @@ A.doReset = () => {
     render();
     return;
   }
-  loadingBtn('reset-btn', 700, () => {
-    S.ui.auth = 'reset-done';
-    S.ui.pwNew = '';
+  if (!BACKEND)
+    return loadingBtn('reset-btn', 700, () => {
+      S.ui.auth = 'reset-done';
+      S.ui.pwNew = '';
+      render();
+    });
+  // Backend mode: the link from the email (#reset/<token>) sets the password and signs in.
+  if (!S.ui.reset) {
+    S.ui.errors = { reset: 'Open the link in the password reset email to choose a new password.' };
     render();
-  });
+    return;
+  }
+  loadingBtn('reset-btn', 0, () =>
+    resetPassword(S.ui.reset.token, a).then(
+      member => {
+        // The link worked once: a reload must not show it again.
+        history.replaceState(null, '', location.pathname + location.search);
+        S.ui.reset = null;
+        S.ui.pwNew = '';
+        if (member) return enterApp('Password updated. You are signed in.');
+        beginOnboarding();
+        render();
+        toast('Password updated. You are signed in.');
+      },
+      err => {
+        S.ui.errors = { reset: err.message };
+        render();
+      },
+    ),
+  );
 };
 
 /* onboarding */
