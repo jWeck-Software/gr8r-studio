@@ -110,6 +110,10 @@ Where this backend knowingly departs from the conventions above, and why:
 - **Numbering Tasks locks the Project row (`FOR UPDATE`), not `symfony/lock`.** The lock has to last
   exactly as long as the sync transaction that stores the keys, and the database is what every
   server shares.
+- **Code says "account" where CONTEXT.md says User.** `App\Account\Accounts`, `AccountController`,
+  `AccountRefused` and the `account` key of an Invite link's body (whether the address has a User
+  already) keep the name: they gather what a User does for themselves (signing up, verifying,
+  passwords, starting and deleting their Workspace). New domain names, messages and docs say User.
 
 ## Everyday workflow
 
