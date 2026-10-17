@@ -93,7 +93,8 @@ Where this backend knowingly departs from the conventions above, and why:
 - **Rate limits are one `kernel.request` listener (`App\Security\RateLimits`), not the firewall's
   `login_throttling` plus per-controller checks, and it reads the email address from the JSON body
   itself (`Request::toArray()`), not through `#[MapRequestPayload]`.** It runs after the router and
-  before the firewall, so a refused sign-in checks no password, and one map says which route counts
+  before the firewall, so a refused sign-in checks no password (routes that need a session count
+  after the firewall, so requests without one can't use up a Member's limits), and one map says which route counts
   against which limiter for sign-in, signup, verification, Invites and passwords alike, all with the
   same 429 body and an exact `Retry-After` (`login_throttling` answers through the failure handler
   in whole minutes). The body is read before `json_login` and the controllers' payloads are.

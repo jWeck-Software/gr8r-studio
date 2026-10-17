@@ -101,6 +101,30 @@ final class RateLimitsTest extends ApiTestCase
         self::assertEmailCount(0);
     }
 
+    /** Only a signed-in Owner's or Admin's resends count: someone without a session can't use them up. */
+    public function testResendsWithoutASessionDoNotCount(): void
+    {
+        $this->signIn();
+        $this->postJson('/api/sync', ['ops' => [['op' => 'put', 'type' => 'members', 'id' => 'mq7x2', 'data' => [
+            'id' => 'mq7x2', 'name' => 'Nina', 'email' => 'nina@example.test', 'role' => 'Member', 'team' => 'design', 'title' => 'Member',
+            'c' => '#6B7280', 'status' => 'invited', 'last' => null, 'tz' => '—',
+        ]]]]);
+        $owner = $this->client->getCookieJar()->all();
+        $this->client->getCookieJar()->clear();
+        for ($i = 0; $i < 3; ++$i) {
+            $this->client->request('POST', '/api/members/mq7x2/invite');
+            self::assertResponseStatusCodeSame(401);
+        }
+        foreach ($owner as $cookie) {
+            $this->client->getCookieJar()->set($cookie);
+        }
+
+        $this->client->request('POST', '/api/members/mq7x2/invite');
+
+        self::assertResponseStatusCodeSame(204);
+        self::assertEmailCount(1);
+    }
+
     /** Accepting one Invite link checks an existing account's password: five tries a minute. */
     public function testTheSixthAcceptOfOneInviteLinkIsRefused(): void
     {

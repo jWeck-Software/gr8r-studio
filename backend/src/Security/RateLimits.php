@@ -16,12 +16,12 @@ use Symfony\Component\Security\Http\Event\LoginSuccessEvent;
 /**
  * The rate limits of the endpoints that check a password or send an email, in one place: which
  * route counts against which limiter (config/packages/rate_limiter.yaml), by what key. Past a limit
- * the request answers 429 `too_many_requests` with Retry-After, before the firewall or the
- * controller sees it, so a refused sign-in checks no password.
+ * the request answers 429 `too_many_requests` with Retry-After, before the controller sees it.
  *
  * Runs after the router (priority 32), which names the route, and before the firewall (8), which
- * handles the sign-in. The email address is read from the JSON body here, before the firewall's
- * json_login and #[MapRequestPayload] read it.
+ * handles the sign-in; the routes that need a session count after it (SIGNED_IN). The email
+ * address is read from the JSON body here, before the firewall's json_login and
+ * #[MapRequestPayload] read it.
  */
 final readonly class RateLimits
 {
@@ -54,11 +54,32 @@ final readonly class RateLimits
     ) {
     }
 
+    /** Routes that need a session: only requests the firewall lets through count, so nobody else can use up their limits. */
+    private const array SIGNED_IN = ['api_member_invite', 'api_me_password'];
+
+    /** Before the firewall: a refused sign-in checks no password. */
     #[AsEventListener(priority: 20)]
-    public function onRequest(RequestEvent $event): void
+    public function beforeFirewall(RequestEvent $event): void
+    {
+        $route = (string) $event->getRequest()->attributes->get('_route');
+        if (!\in_array($route, self::SIGNED_IN, true)) {
+            $this->limit($event, $route);
+        }
+    }
+
+    /** After the firewall (8), which answers a request without a session with 401. */
+    #[AsEventListener(priority: 4)]
+    public function afterFirewall(RequestEvent $event): void
+    {
+        $route = (string) $event->getRequest()->attributes->get('_route');
+        if (\in_array($route, self::SIGNED_IN, true)) {
+            $this->limit($event, $route);
+        }
+    }
+
+    private function limit(RequestEvent $event, string $route): void
     {
         $request = $event->getRequest();
-        $route = (string) $request->attributes->get('_route');
         $retryAfter = null;
         foreach (self::ROUTES[$route] ?? [] as $limiter => $parts) {
             $limit = $this->limiters->get($limiter)->create($this->key($request, $route, $parts))->consume();
