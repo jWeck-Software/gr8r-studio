@@ -46,9 +46,10 @@ final class InvitesTest extends ApiTestCase
         self::assertEmailCount(0);
     }
 
+    /** The whole path: the Owner invites Ana, she follows the link in the email and is in. */
     public function testAnaAcceptsHerInviteAndIsSignedInAsTheNewMember(): void
     {
-        $this->signIn('sarah@gr8rstudio.com');
+        $this->signIn();
         $this->invite();
         $token = $this->token();
         $this->client->request('POST', '/api/logout');
