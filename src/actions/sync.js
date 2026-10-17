@@ -10,12 +10,14 @@
    While signed in, teammates' changes come in by a refresh when the tab is shown again or the
    window regains focus, and every 60 s while the tab is visible: pending changes are sent first,
    and the snapshot replaces the synced collections only when nothing is unsynced afterwards and
-   the user is not in the middle of an edit (sync-rules.js).
+   the user is not in the middle of an edit (sync-rules.js). An expired session (401) keeps the
+   unsynced changes and shows the login screen; signing in again as the same Member sends them,
+   another Member signing in discards them.
    ===================================================================== */
 import { BACKEND, api } from '../core/api.js';
 import { diffData } from '../core/diff.js';
-import { midEdit, refreshed } from '../core/sync-rules.js';
-import { S, onSave, task } from '../core/store.js';
+import { afterSignIn, midEdit, refreshed } from '../core/sync-rules.js';
+import { S, me, onSave, task } from '../core/store.js';
 import { toast } from '../ui/toast.js';
 import { render } from '../shell/render.js';
 import { DRAG } from './drag-drop.js';
@@ -33,6 +35,7 @@ let again = false; // a save came in while a push was running
 let sends = 0; // counts the batches sent, so a refresh sees whether one went out while it was fetching
 let failing = false; // the last push could not reach the server
 let leaving = Promise.resolve(); // a sign-out still talking to the server
+let left = null; // unsynced changes of a session that ended: { member, name, synced }, sent after signing in again as that Member
 let refreshing = null; // the running refresh, if any
 let poll = 0; // the 60 s refresh timer while signed in
 let typedIn = null; // the field last typed into: its text may exist only in the page
@@ -56,8 +59,14 @@ export async function resumeSession() {
 /** Signs in and loads the Workspace. Rejects with an ApiError whose message can be shown as is. */
 export async function signIn(email, password) {
   await leaving;
-  await api.login(email, password);
+  const { member } = await api.login(email, password);
+  const was = left;
+  left = null;
+  const next = afterSignIn(was, member);
+  if (next === 'resend') return resend(was.synced);
   await loadWorkspace();
+  if (next === 'discard')
+    toast(`Changes ${was.name || 'the previous Member'} had not synced yet were discarded, because a different Member signed in.`, { kind: 'err', ms: 8000 });
 }
 
 /** Sends what is still pending, then ends the session on the server. */
@@ -65,6 +74,7 @@ export function signOut() {
   unwatch();
   leaving = (async () => {
     await settle();
+    if (synced) strand();
     synced = null;
     session++;
     await api.logout().catch(() => {});
@@ -81,6 +91,22 @@ async function loadWorkspace() {
   synced = copyOf(data);
   failing = false;
   watch();
+}
+
+/* Signed in again as the Member whose session ended: S.data still holds their changes, so diffing
+   against what the server last confirmed for them sends exactly those; then catch up with the team. */
+async function resend(base) {
+  session++;
+  synced = base;
+  failing = false;
+  watch();
+  await settle();
+  await pull(() => true);
+}
+
+/* Keeps the unsynced changes of a session that is ending, for when its Member signs in again. */
+function strand() {
+  left = pending() ? { member: S.data.me, name: me()?.name, synced } : null;
 }
 
 /* ---------- refresh: teammates' changes ---------- */
@@ -225,6 +251,7 @@ function dropVanished() {
 }
 
 function sessionEnded() {
+  strand();
   unwatch();
   synced = null;
   session++;

@@ -16,3 +16,9 @@ export function refreshed(local, server, types) {
 export function midEdit(ui, { typing = null, dragging = false } = {}) {
   return !!(ui.editCell || ui.composer || ui.modals.length || ui.pop || ui.palette || ui.auth || dragging || typing === 'field');
 }
+
+/** What a sign-in does with the changes left over from a session that ended (`left`: the Member they were made by, or null). */
+export function afterSignIn(left, member) {
+  if (!left) return 'load';
+  return left.member === member ? 'resend' : 'discard';
+}

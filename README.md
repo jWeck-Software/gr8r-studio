@@ -40,7 +40,8 @@ collections are listed in `SYNCED`, so far `projects`, `tasks`, the sidebar's `p
 and the `read` flag of `notifs`). Preferences and view settings stay in
 localStorage for now. Teammates' changes come in when the tab regains focus and every 60 s
 while it is visible (after pending changes are sent, and not while you are typing in a field or
-have a dialog open). Sign-up, social sign-in, onboarding and the demo reset are not available
+have a dialog open); an expired session keeps your unsynced changes and sends them once you sign
+in again as the same Member. Sign-up, social sign-in, onboarding and the demo reset are not available
 in this mode yet.
 
 ## Project structure

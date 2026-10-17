@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { midEdit, refreshed } from './sync-rules.js';
+import { afterSignIn, midEdit, refreshed } from './sync-rules.js';
 
 test('a refresh takes the synced collections from the server and keeps what lives only in this browser', () => {
   const local = { me: 'm1', tasks: [{ id: 't1', title: 'Old' }], savedViews: [{ id: 'v1' }], files: [{ id: 'f1' }] };
@@ -61,4 +61,16 @@ test('a popover, the command palette, the login screen or a drag in progress hol
 test('text typed into a field of the page holds a refresh back, except a comment draft, which the page keeps itself', () => {
   assert.equal(midEdit(resting, { typing: 'field' }), true);
   assert.equal(midEdit(resting, { typing: 'draft' }), false);
+});
+
+test('signing in again as the Member whose session ended sends the changes left over from that session', () => {
+  assert.equal(afterSignIn({ member: 'm1' }, 'm1'), 'resend');
+});
+
+test('another Member signing in discards the changes left over from the ended session: they are not theirs to send', () => {
+  assert.equal(afterSignIn({ member: 'm1' }, 'm3'), 'discard');
+});
+
+test('without leftover changes a sign-in just loads the Workspace', () => {
+  assert.equal(afterSignIn(null, 'm1'), 'load');
 });
