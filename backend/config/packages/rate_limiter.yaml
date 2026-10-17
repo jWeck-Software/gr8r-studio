@@ -1,25 +1,26 @@
 # How often the account endpoints may be called before they answer 429 too_many_requests
 # (App\Security\RateLimits says which endpoint counts against which limiter, by what key).
+# Fixed windows: their Retry-After is exact (a sliding window's estimate comes too early).
 framework:
     rate_limiter:
         # Signing in, per email address and IP; a successful sign-in starts over.
         sign_in:
-            policy: sliding_window
+            policy: fixed_window
             limit: 5
             interval: '1 minute'
         # Emails to one address: signing up, a new verification link, a password reset link, an Invite sent again.
         email:
-            policy: sliding_window
+            policy: fixed_window
             limit: 3
             interval: '15 minutes'
         # Accepting one Invite link (which may check an existing account's password).
         link:
-            policy: sliding_window
+            policy: fixed_window
             limit: 5
             interval: '1 minute'
         # Each endpoint, per IP.
         ip:
-            policy: sliding_window
+            policy: fixed_window
             limit: 20
             interval: '1 minute'
 
@@ -29,10 +30,10 @@ when@dev:
     framework:
         rate_limiter:
             email:
-                policy: sliding_window
+                policy: fixed_window
                 limit: 50
                 interval: '15 minutes'
             ip:
-                policy: sliding_window
+                policy: fixed_window
                 limit: 1000
                 interval: '1 minute'

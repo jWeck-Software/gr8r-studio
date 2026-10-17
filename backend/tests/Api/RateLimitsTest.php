@@ -24,7 +24,8 @@ final class RateLimitsTest extends ApiTestCase
         self::assertSame('too_many_requests', $body['error']);
         self::assertMatchesRegularExpression('/^Too many attempts\. Try again in \d+ seconds\.$/', $body['message']);
         $retryAfter = (int) $this->client->getResponse()->headers->get('Retry-After');
-        self::assertGreaterThan(0, $retryAfter);
+        // The minute counted from the first attempt, of which hardly a second has passed.
+        self::assertGreaterThanOrEqual(55, $retryAfter);
         self::assertLessThanOrEqual(60, $retryAfter);
     }
 
@@ -78,7 +79,7 @@ final class RateLimitsTest extends ApiTestCase
         self::assertResponseStatusCodeSame(429);
         self::assertSame('too_many_requests', $body['error']);
         self::assertEmailCount(0);
-        self::assertMatchesRegularExpression('/^Too many attempts\. Try again in \d+ minutes\.$/', $body['message']);
+        self::assertMatchesRegularExpression('/^Too many attempts\. Try again in 15 minutes\.$/', $body['message']);
     }
 
     /** An Owner or Admin sends one invited Member's Invite again at most three times a quarter hour. */
