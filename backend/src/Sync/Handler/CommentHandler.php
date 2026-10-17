@@ -11,6 +11,7 @@ use App\Notification\Notifier;
 use App\Sync\CollectionHandler;
 use App\Sync\Fields;
 use App\Sync\SyncRejected;
+use App\Sync\WorkspaceRecords;
 use Doctrine\ORM\EntityManagerInterface;
 
 /** Comments on Tasks and their Reactions. */
@@ -20,6 +21,7 @@ final readonly class CommentHandler implements CollectionHandler
         private EntityManagerInterface $em,
         private ProjectAccess $access,
         private Notifier $notifier,
+        private WorkspaceRecords $records,
     ) {
     }
 
@@ -46,11 +48,8 @@ final readonly class CommentHandler implements CollectionHandler
         }
         $this->assertSees($actor, $task);
 
-        $comment = $this->em->find(Comment::class, $id);
-        $deleted = null === $comment ? $this->em->find(DeletedComment::class, $id) : null;
-        if (null !== ($comment ?? $deleted) && ($comment ?? $deleted)->getWorkspace() !== $ws) {
-            throw SyncRejected::invalid(\sprintf('The id "%s" is already used.', $id));
-        }
+        $comment = $this->records->find(Comment::class, $actor, $id);
+        $deleted = null === $comment ? $this->records->find(DeletedComment::class, $actor, $id) : null;
         if (null !== $deleted) {
             // Undo: the Comment comes back as its author's, then the put applies as to any Comment.
             $comment = $this->restore($actor, $deleted);

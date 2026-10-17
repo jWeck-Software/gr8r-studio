@@ -11,8 +11,9 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  * Adding a collection to the sync means adding one class that implements this interface;
  * Sync picks it up by its type(). A handler validates the record, checks that the Member
  * may make the change, maps it onto entities and persists them, and derives whatever the
- * server owns (ADR 0003). It throws SyncRejected to refuse the batch; Sync flushes after
- * every op and runs the whole batch in one transaction.
+ * server owns (ADR 0003). It looks the record up through WorkspaceRecords, which refuses ids
+ * of other Workspaces. It throws SyncRejected to refuse the batch; Sync flushes after every op
+ * and runs the whole batch in one transaction.
  */
 #[AutoconfigureTag]
 interface CollectionHandler

@@ -10,6 +10,7 @@ use App\Entity\Task;
 use App\Sync\CollectionHandler;
 use App\Sync\Fields;
 use App\Sync\SyncRejected;
+use App\Sync\WorkspaceRecords;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -22,6 +23,7 @@ final readonly class ActivityHandler implements CollectionHandler
     public function __construct(
         private EntityManagerInterface $em,
         private ProjectAccess $access,
+        private WorkspaceRecords $records,
     ) {
     }
 
@@ -36,10 +38,7 @@ final readonly class ActivityHandler implements CollectionHandler
         $task = $f->nullableString('task', 44);
         $project = $f->nullableString('project', 44);
         $entry = new Activity($id, $actor->getWorkspace(), $actor->getId(), $f->nonEmptyString('verb'), $task, $project, $f->timestamp('at'), $f->string('extra'));
-        $logged = $this->em->find(Activity::class, $id);
-        if (null !== $logged && $logged->getWorkspace() !== $actor->getWorkspace()) {
-            throw SyncRejected::invalid(\sprintf('The id "%s" is already used.', $id));
-        }
+        $logged = $this->records->find(Activity::class, $actor, $id);
         if (null !== $logged) {
             // Append-only: what was logged stays; the client may send an entry again.
             return [];

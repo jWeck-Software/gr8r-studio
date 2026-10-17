@@ -9,6 +9,7 @@ use App\Entity\Task;
 use App\Sync\CollectionHandler;
 use App\Sync\Fields;
 use App\Sync\SyncRejected;
+use App\Sync\WorkspaceRecords;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -25,6 +26,7 @@ final readonly class ProjectHandler implements CollectionHandler
         private EntityManagerInterface $em,
         private ProjectAccess $access,
         private TaskHandler $tasks,
+        private WorkspaceRecords $records,
     ) {
     }
 
@@ -47,10 +49,7 @@ final readonly class ProjectHandler implements CollectionHandler
             $this->assertMember($actor, $member, 'member');
         }
 
-        $project = $this->em->find(Project::class, $id);
-        if (null !== $project && $project->getWorkspace() !== $ws) {
-            throw SyncRejected::invalid(\sprintf('The id "%s" is already used.', $id));
-        }
+        $project = $this->records->find(Project::class, $actor, $id);
         if (null !== $project && $this->access->sees($actor, $project) && self::record(new Fields($project->toRecord(), 'Project')) === $record) {
             // Nothing but the star changed: anyone who sees the Project may star it, Guests included.
             $actor->star('projects', $id, $fav);

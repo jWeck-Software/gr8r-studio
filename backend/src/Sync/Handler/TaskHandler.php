@@ -14,6 +14,7 @@ use App\Sync\CollectionHandler;
 use App\Sync\Fields;
 use App\Sync\Sync;
 use App\Sync\SyncRejected;
+use App\Sync\WorkspaceRecords;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -28,6 +29,7 @@ final readonly class TaskHandler implements CollectionHandler
         private ProjectAccess $access,
         private Notifier $notifier,
         private CommentHandler $comments,
+        private WorkspaceRecords $records,
     ) {
     }
 
@@ -55,11 +57,8 @@ final readonly class TaskHandler implements CollectionHandler
             }
         }
 
-        $task = $this->em->find(Task::class, $id);
-        $deleted = null === $task ? $this->em->find(DeletedTask::class, $id) : null;
-        if (null !== ($task ?? $deleted) && ($task ?? $deleted)->getWorkspace() !== $ws) {
-            throw SyncRejected::invalid(\sprintf('The id "%s" is already used.', $id));
-        }
+        $task = $this->records->find(Task::class, $actor, $id);
+        $deleted = null === $task ? $this->records->find(DeletedTask::class, $actor, $id) : null;
         $untouched = static fn (array $r): array => array_diff_key($r, ['updated' => 0]);
         if (null !== $task && $this->access->sees($actor, $task->getProject()) && $untouched(self::record(new Fields($task->toRecord(), 'Task'))) === $untouched($record)) {
             // Nothing but the star and the time changed: anyone who sees the Task may star it, and
