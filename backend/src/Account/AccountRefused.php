@@ -37,6 +37,12 @@ final class AccountRefused extends \RuntimeException
         return new self(410, 'expired', 'This password reset link has expired. Ask for a new one from the sign-in page.');
     }
 
+    /** Changing the password with a current one that is not the User's. */
+    public static function wrongPassword(): self
+    {
+        return new self(401, 'invalid_credentials', 'Your current password is incorrect.');
+    }
+
     /** The password chosen is too weak (PasswordPolicy). */
     public static function weakPassword(string $message): self
     {

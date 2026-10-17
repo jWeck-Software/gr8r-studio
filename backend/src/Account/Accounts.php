@@ -147,6 +147,28 @@ final readonly class Accounts
     }
 
     /**
+     * Gives the signed-in User a new password, when the current one is theirs. Their other sessions
+     * end (the password changed), and an open password reset link stops working.
+     *
+     * @throws AccountRefused when the current password is wrong, or the new one too weak
+     */
+    public function changePassword(User $user, string $current, string $new): void
+    {
+        if (!$this->hasher->isPasswordValid($user, $current)) {
+            throw AccountRefused::wrongPassword();
+        }
+        $weak = PasswordPolicy::whyWeak($new);
+        if (null !== $weak) {
+            throw AccountRefused::weakPassword($weak);
+        }
+        $this->transaction->run(function () use ($user, $new): void {
+            $user->setPassword($this->hasher->hashPassword($user, $new));
+            $this->tokens->revoke(Purpose::ResetPassword, (string) $user->getId());
+            $this->em->flush();
+        });
+    }
+
+    /**
      * Verifies the User whose verification link holds this token; the link stops working.
      *
      * @throws AccountRefused when the link does not work (any more)

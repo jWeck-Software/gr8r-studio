@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Account\AccountRefused;
 use App\Account\Accounts;
+use App\Account\ChangePassword;
 use App\Account\ForgotPassword;
 use App\Account\ResendVerification;
 use App\Account\ResetPassword;
@@ -63,6 +64,19 @@ final class AccountController extends AbstractController
         }
 
         return $security->login($user, 'json_login', 'api') ?? new JsonResponse($signedIn->body($user));
+    }
+
+    /** The session it is sent from stays signed in; the User's other sessions end. */
+    #[Route('/api/me/password', name: 'api_me_password', methods: ['POST'])]
+    public function changePassword(#[CurrentUser] User $user, #[MapRequestPayload(acceptFormat: 'json')] ChangePassword $body, Accounts $accounts): Response
+    {
+        try {
+            $accounts->changePassword($user, $body->current, $body->new);
+        } catch (AccountRefused $refused) {
+            return new JsonResponse($refused->body(), $refused->status);
+        }
+
+        return new Response(status: 204);
     }
 
     /** Verifying signs the User in, with the same body as /api/login: `member` is null until they start a Workspace. */
