@@ -5,10 +5,12 @@ namespace App\Snapshot;
 use App\Access\ProjectAccess;
 use App\Entity\Activity;
 use App\Entity\Comment;
+use App\Entity\Event;
 use App\Entity\File;
 use App\Entity\Member;
 use App\Entity\Notification;
 use App\Entity\Project;
+use App\Entity\SavedView;
 use App\Entity\Task;
 use App\Entity\TaskKeys;
 use App\Entity\Team;
@@ -58,8 +60,8 @@ final readonly class Snapshot
                 'activity' => $this->activity($member, $visible),
                 'notifs' => $this->notifs($member, $visible, array_map(static fn (Task $t): string => $t->getId(), $visibleTasks)),
                 'files' => array_map(static fn (File $f): array => $f->toRecord(), $files),
-                'events' => [],
-                'savedViews' => [],
+                'events' => self::inCreationOrder(array_map(static fn (Event $e): array => $e->toRecord(), $this->em->getRepository(Event::class)->findBy(['project' => $projects]))),
+                'savedViews' => self::inCreationOrder(array_map(static fn (SavedView $v): array => $v->toRecord(), $this->em->getRepository(SavedView::class)->findBy(['project' => $projects]))),
                 'teams' => self::inCreationOrder(array_map(static fn (Team $t): array => $t->toRecord(), $this->em->getRepository(Team::class)->findBy($byWorkspace))),
                 'recentSearches' => $member->personal('recentSearches') ?? [],
                 'notifPrefs' => (object) ($member->personal('notifPrefs') ?? []),

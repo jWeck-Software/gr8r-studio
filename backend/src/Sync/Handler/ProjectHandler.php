@@ -3,8 +3,10 @@
 namespace App\Sync\Handler;
 
 use App\Access\ProjectAccess;
+use App\Entity\Event;
 use App\Entity\Member;
 use App\Entity\Project;
+use App\Entity\SavedView;
 use App\Entity\Task;
 use App\File\Files;
 use App\Sync\CollectionHandler;
@@ -83,9 +85,9 @@ final readonly class ProjectHandler implements CollectionHandler
     }
 
     /**
-     * Everything that lives inside a Project goes with it: its Tasks, their Comments and its Files. Removed
-     * through the entity manager, not only by the database's cascade, so later ops of the same
-     * batch see them gone.
+     * Everything that lives inside a Project goes with it: its Tasks, their Comments, its Files, Events
+     * and Saved views. Removed through the entity manager, not only by the database's cascade, so
+     * later ops of the same batch see them gone.
      */
     private function deleteContents(Project $project): void
     {
@@ -93,6 +95,9 @@ final readonly class ProjectHandler implements CollectionHandler
             $this->tasks->remove($task);
         }
         $this->files->removeAllOf($project);
+        foreach ([...$this->em->getRepository(Event::class)->findBy(['project' => $project]), ...$this->em->getRepository(SavedView::class)->findBy(['project' => $project])] as $content) {
+            $this->em->remove($content);
+        }
     }
 
     private function authorize(Member $actor, string $id, ?Project $project): void

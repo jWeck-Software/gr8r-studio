@@ -4,10 +4,12 @@ namespace App\Demo;
 
 use App\Entity\Activity;
 use App\Entity\Comment;
+use App\Entity\Event;
 use App\Entity\File;
 use App\Entity\Member;
 use App\Entity\Notification;
 use App\Entity\Project;
+use App\Entity\SavedView;
 use App\Entity\Task;
 use App\Entity\Team;
 use App\Entity\User;
@@ -22,8 +24,6 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  * dates relative to today. Every active Member gets a User with the demo password.
  *
  * The demo Files come with placeholder content (PlaceholderContent): their sizes are the demo's.
- *
- * Not yet seeded (their tickets add them): Events and Saved views.
  */
 final class DemoSeed
 {
@@ -61,6 +61,10 @@ final class DemoSeed
             $this->comments($ws, $tasks);
             $this->activity($ws);
             $this->notifications($ws, $members['m1']);
+            $this->events($ws, $projects);
+            $savedView = new SavedView('v1', $ws, $projects['p1']);
+            $savedView->update(['name' => 'High priority', 'type' => 'list', 'filters' => [['f' => 'priority', 'op' => 'is', 'v' => ['urgent', 'high']]]], $projects['p1']);
+            $this->em->persist($savedView);
 
             return $this->files($ws, $projects, $tasks);
         });
@@ -476,6 +480,24 @@ final class DemoSeed
     }
 
     /** A calendar date $days from today, as YYYY-MM-DD. */
+    /** @param array<string, Project> $projects */
+    private function events(Workspace $ws, array $projects): void
+    {
+        $rows = [
+            ['e1', 'Design review', 1, '10:00', 'p1'],
+            ['e2', 'Sprint planning', 5, '09:30', 'p2'],
+            ['e3', 'Launch sync', 0, '15:00', 'p4'],
+            ['e4', 'Stakeholder demo', 9, '14:00', 'p1'],
+            ['e5', 'Campaign kickoff', -3, '11:00', 'p3'],
+            ['e6', 'Retro', 12, '16:00', 'p2'],
+        ];
+        foreach ($rows as [$id, $title, $days, $time, $p]) {
+            $event = new Event($id, $ws, $projects[$p]);
+            $event->update(['title' => $title, 'date' => $this->dOff($days), 'time' => $time], $projects[$p]);
+            $this->em->persist($event);
+        }
+    }
+
     private function dOff(int $days): string
     {
         return $this->now->modify(\sprintf('%+d days', $days))->format('Y-m-d');

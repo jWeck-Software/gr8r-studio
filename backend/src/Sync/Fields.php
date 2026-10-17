@@ -63,14 +63,24 @@ final readonly class Fields
     public function nullableDate(string $field): ?string
     {
         $value = $this->required($field);
-        if (null === $value) {
-            return null;
-        }
-        if (\is_string($value) && 1 === preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $value, $m) && checkdate((int) $m[2], (int) $m[3], (int) $m[1])) {
-            return $value;
-        }
 
-        throw $this->wrong($field, 'a date YYYY-MM-DD or null');
+        return null === $value || self::isDate($value) ? $value : throw $this->wrong($field, 'a date YYYY-MM-DD or null');
+    }
+
+    /** A calendar date YYYY-MM-DD. */
+    public function date(string $field): string
+    {
+        $value = $this->required($field);
+
+        return self::isDate($value) ? $value : throw $this->wrong($field, 'a date YYYY-MM-DD');
+    }
+
+    /** A time of day HH:MM, 24-hour. */
+    public function time(string $field): string
+    {
+        $value = $this->required($field);
+
+        return \is_string($value) && 1 === preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $value) ? $value : throw $this->wrong($field, 'a time HH:MM');
     }
 
     /** Epoch milliseconds. */
@@ -169,6 +179,11 @@ final readonly class Fields
         }
 
         return $value;
+    }
+
+    private static function isDate(mixed $value): bool
+    {
+        return \is_string($value) && 1 === preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $value, $m) && checkdate((int) $m[2], (int) $m[3], (int) $m[1]);
     }
 
     /** @return list<mixed> */

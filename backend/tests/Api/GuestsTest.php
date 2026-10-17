@@ -181,6 +181,28 @@ final class GuestsTest extends ApiTestCase
         self::assertSame(['error' => 'forbidden', 'op' => 0, 'message' => $message], $body);
     }
 
+    /** @return iterable<string, array{array<string, mixed>, string}> */
+    public static function calendarAndSavedViewWrites(): iterable
+    {
+        $event = ['id' => 'e5', 'title' => 'Campaign kickoff, moved', 'date' => '2026-10-20', 'time' => '11:00', 'project' => 'p3'];
+        $view = ['id' => 'vq7x2', 'project' => 'p3', 'name' => 'Mine', 'type' => 'list', 'filters' => []];
+        yield 'move an Event' => [['op' => 'put', 'type' => 'events', 'id' => 'e5', 'data' => $event], 'You may not change the Events of the Project "p3".'];
+        yield 'add an Event' => [['op' => 'put', 'type' => 'events', 'id' => 'eq7x2', 'data' => [...$event, 'id' => 'eq7x2']], 'You may not change the Events of the Project "p3".'];
+        yield 'delete an Event' => [['op' => 'delete', 'type' => 'events', 'id' => 'e5'], 'You may not change the Events of the Project "p3".'];
+        yield 'save a view' => [['op' => 'put', 'type' => 'savedViews', 'id' => 'vq7x2', 'data' => $view], 'You may not change the Saved views of the Project "p3".'];
+    }
+
+    /** @param array<string, mixed> $op */
+    #[\PHPUnit\Framework\Attributes\DataProvider('calendarAndSavedViewWrites')]
+    public function testAGuestChangesNoEventsOrSavedViews(array $op, string $message): void
+    {
+        $body = $this->sync([$op]);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(['error' => 'forbidden', 'op' => 0, 'message' => $message], $body);
+        self::assertSame(['e5'], array_column($this->getJson('/api/bootstrap')['data']['events'], 'id'));
+    }
+
     public function testAGuestKeepsTheirOwnPreferencesViewsAndSettings(): void
     {
         $views = ['p:p3' => ['filters' => [], 'sort' => ['f' => 'due', 'dir' => 1], 'group' => 'status', 'q' => '', 'hidden' => [], 'colW' => [], 'showDone' => true]];
