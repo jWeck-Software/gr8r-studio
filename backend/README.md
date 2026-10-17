@@ -83,6 +83,14 @@ health and login answers `401 {"error":"unauthenticated"}`.
   Member's; putting an id that exists changes nothing, and `delete` is accepted and ignored (undo
   in the frontend restores S.data as it was and so sends deletes). Entries about a deleted Task or
   Project stay, but bootstrap shows only those about visible Projects or about no Project.
+- `src/Notification/NotificationRules.php`: which Notifications a put makes, as a pure function:
+  a changed `assignee` notifies the new assignee, a new Comment notifies the Members it mentions as
+  `@Full Name` (longest names first) and the Task's assignee; never the actor. `Notifier.php` stores
+  them for recipients who see the Task's Project; task and comment handlers call it.
+- `src/Sync/Handler/NotificationHandler.php`: Notifications are the server's; their recipient may
+  only change `read` (anything else, or someone else's, is 403). A Notification the client made up
+  is ignored and `delete` changes nothing. Bootstrap shows the Member's own, newest first, about
+  what they can still see.
 - `src/Access/ProjectAccess.php`: who sees and changes which Projects (Private projects, Guests);
   used by the snapshot and by every handler.
 - `src/Demo/DemoSeed.php`: the demo Workspace, ported from `src/data/seed.js`.
