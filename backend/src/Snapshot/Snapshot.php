@@ -2,6 +2,7 @@
 
 namespace App\Snapshot;
 
+use App\Access\ProjectAccess;
 use App\Entity\Member;
 use App\Entity\Project;
 use App\Entity\Task;
@@ -12,7 +13,8 @@ use Psr\Clock\ClockInterface;
  * Everything a Member may see of their Workspace, in the frontend's shape:
  * `data` is the frontend's S.data, `prefs` its S.prefs and `views` its S.views.
  *
- * Visibility rules and per-Member mapping live here, so callers only say who is asking.
+ * Visibility (ProjectAccess) and per-Member mapping such as favorites are applied here, so
+ * callers only say who is asking.
  */
 final readonly class Snapshot
 {
@@ -21,6 +23,7 @@ final readonly class Snapshot
 
     public function __construct(
         private EntityManagerInterface $em,
+        private ProjectAccess $access,
         private ClockInterface $clock,
     ) {
     }
@@ -32,8 +35,9 @@ final readonly class Snapshot
         $byWorkspace = ['workspace' => $ws];
 
         $members = $this->em->getRepository(Member::class)->findBy($byWorkspace, ['id' => 'ASC']);
-        $projects = $this->em->getRepository(Project::class)->findBy($byWorkspace);
-        $tasks = self::withFavorites($member, 'tasks', array_map(static fn (Task $t): array => $t->toRecord(), $this->em->getRepository(Task::class)->findBy($byWorkspace)));
+        $projects = $this->access->visibleProjects($member);
+        $visible = array_map(static fn (Project $p): string => $p->getId(), $projects);
+        $tasks = self::withFavorites($member, 'tasks', array_map(static fn (Task $t): array => $t->toRecord(), $this->em->getRepository(Task::class)->findBy([...$byWorkspace, 'project' => $visible])));
         $seqs = self::keySequences($tasks);
 
         return [
@@ -43,7 +47,7 @@ final readonly class Snapshot
                 'members' => array_map(static fn (Member $m): array => $m->toRecord(), $members),
                 'projects' => self::inCreationOrder(self::withFavorites($member, 'projects', array_map(static fn (Project $p): array => [...$p->toRecord(), 'seq' => $seqs[$p->getId()] ?? self::FIRST_SEQ], $projects))),
                 'tasks' => self::inCreationOrder($tasks),
-                'projOrder' => $ws->getProjOrder(),
+                'projOrder' => array_values(array_intersect($ws->getProjOrder(), $visible)),
                 'comments' => [],
                 'activity' => [],
                 'notifs' => [],

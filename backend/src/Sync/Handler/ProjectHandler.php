@@ -2,6 +2,7 @@
 
 namespace App\Sync\Handler;
 
+use App\Access\ProjectAccess;
 use App\Entity\Member;
 use App\Entity\Project;
 use App\Entity\Task;
@@ -15,8 +16,10 @@ final readonly class ProjectHandler implements CollectionHandler
 {
     private const array STATUSES = ['planning', 'active', 'risk', 'hold', 'complete'];
 
-    public function __construct(private EntityManagerInterface $em)
-    {
+    public function __construct(
+        private EntityManagerInterface $em,
+        private ProjectAccess $access,
+    ) {
     }
 
     public function type(): string
@@ -42,6 +45,7 @@ final readonly class ProjectHandler implements CollectionHandler
         if (null !== $project && $project->getWorkspace() !== $ws) {
             throw SyncRejected::invalid(\sprintf('The id "%s" is already used.', $id));
         }
+        $this->authorize($actor, $id, $project);
         if ($this->keyTaken($actor, $record['key'], $id)) {
             throw SyncRejected::invalid(\sprintf('The Project key %s is already used.', $record['key']));
         }
@@ -59,6 +63,7 @@ final readonly class ProjectHandler implements CollectionHandler
         if (null === $project || $project->getWorkspace() !== $actor->getWorkspace()) {
             return;
         }
+        $this->authorize($actor, $id, $project);
         $this->deleteContents($project);
         $ws = $project->getWorkspace();
         $ws->setProjOrder(array_values(array_diff($ws->getProjOrder(), [$id])));
@@ -73,6 +78,13 @@ final readonly class ProjectHandler implements CollectionHandler
     {
         foreach ($this->em->getRepository(Task::class)->findBy(['project' => $project]) as $task) {
             $this->em->remove($task);
+        }
+    }
+
+    private function authorize(Member $actor, string $id, ?Project $project): void
+    {
+        if (!$this->access->mayChange($actor, $project)) {
+            throw SyncRejected::forbidden(\sprintf('You may not change the Project "%s".', $id));
         }
     }
 

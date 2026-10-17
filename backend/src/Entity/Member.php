@@ -58,6 +58,12 @@ class Member
         return $this->workspace;
     }
 
+    /** A Guest only reads the Projects they belong to and comments on them. */
+    public function isGuest(): bool
+    {
+        return 'Guest' === $this->role;
+    }
+
     public function getUser(): ?User
     {
         return $this->user;

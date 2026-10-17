@@ -111,6 +111,11 @@ class Task
         return $this->workspace;
     }
 
+    public function getProject(): Project
+    {
+        return $this->project;
+    }
+
     /**
      * @param array<string, mixed> $record a valid Task in the frontend's shape; `project` and
      *                                     `assignee` are given as the resolved Project and Member

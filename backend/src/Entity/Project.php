@@ -82,6 +82,17 @@ class Project
         return $this->workspace;
     }
 
+    public function isPrivate(): bool
+    {
+        return true === $this->isPrivate;
+    }
+
+    /** @return list<string> the ids of the Project's Members */
+    public function getMembers(): array
+    {
+        return $this->members;
+    }
+
     /** @param array<string, mixed> $record a Project in the frontend's shape */
     public function update(array $record): void
     {

@@ -16,7 +16,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  * dates relative to today. Every active Member gets a User with the demo password.
  *
  * Not yet seeded (their tickets add them): Teams, Comments, Activity, Notifications,
- * Files, Events, Saved views and the Private project "Customer Portal".
+ * Files, Events and Saved views.
  */
 final class DemoSeed
 {
@@ -38,7 +38,7 @@ final class DemoSeed
         $this->now = $this->clock->now();
         $this->em->wrapInTransaction(function (): void {
             $this->purge();
-            $ws = new Workspace('Gr8r Studio', self::WORKSPACE_URL, '#1D1C1A', true, ['p1', 'p2', 'p3', 'p4', 'p5', 'p7']);
+            $ws = new Workspace('Gr8r Studio', self::WORKSPACE_URL, '#1D1C1A', true, ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7']);
             $this->em->persist($ws);
             $members = $this->members($ws);
             $projects = $this->projects($ws, $members['m1']);
@@ -143,6 +143,14 @@ final class DemoSeed
                 'desc' => 'Shared tokens, components, and documentation used by web and mobile teams.',
                 'milestones' => [['name' => 'v2 tokens', 'date' => $this->dOff(3)]],
                 'last' => 300,
+            ],
+            [
+                'id' => 'p6', 'key' => 'CP', 'name' => 'Customer Portal', 'icon' => 'building-2', 'color' => 'teal', 'status' => 'hold',
+                'team' => 'eng', 'lead' => 'm6', 'due' => $this->dOff(90), 'start' => $this->dOff(-5), 'fav' => false,
+                'members' => ['m6', 'm7'], 'private' => true,
+                'desc' => 'Self-serve billing and support portal for enterprise customers. Restricted during contract review.',
+                'milestones' => [],
+                'last' => 2880,
             ],
             [
                 'id' => 'p7', 'key' => 'MW', 'name' => 'Marketing Website', 'icon' => 'layout-grid', 'color' => 'green', 'status' => 'complete',
@@ -302,6 +310,8 @@ final class DemoSeed
         // Marketing Website (complete)
         $t('p7', 'Launch site QA', 'done', 'm3', 'high', -20, ['qa']);
         $t('p7', 'Spring release hero video', 'done', 'm5', 'medium', -24, ['content']);
+        // Customer Portal (Private project)
+        $t('p6', 'Billing API contract', 'todo', 'm6', 'high', 30, ['backend']);
 
         $i = 0;
         foreach ($tasks as &$task) {
