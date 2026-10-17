@@ -10,6 +10,7 @@ use App\Entity\Notification;
 use App\Entity\Project;
 use App\Entity\Task;
 use App\Entity\TaskKeys;
+use App\Entity\Team;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 
@@ -56,7 +57,7 @@ final readonly class Snapshot
                 'files' => [],
                 'events' => [],
                 'savedViews' => [],
-                // No `teams` key until Teams are stored: the frontend then uses its built-in Teams.
+                'teams' => self::inCreationOrder(array_map(static fn (Team $t): array => $t->toRecord(), $this->em->getRepository(Team::class)->findBy($byWorkspace))),
                 'recentSearches' => [],
                 'notifPrefs' => new \stdClass(),
                 ...$this->demoOnly(),

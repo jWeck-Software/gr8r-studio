@@ -160,12 +160,16 @@ final class BootstrapTest extends ApiTestCase
         }
     }
 
-    /** Until Teams are stored, the frontend falls back to its built-in Teams when the key is missing. */
-    public function testTeamsAreLeftToTheFrontend(): void
+    public function testTheWorkspacesTeamsComeWithIt(): void
     {
         $this->signIn();
 
-        self::assertArrayNotHasKey('teams', $this->getJson('/api/bootstrap')['data']);
+        self::assertSame([
+            ['id' => 'design', 'name' => 'Design', 'icon' => 'palette', 'c' => '#8662C9', 'desc' => 'Product design, brand, and research'],
+            ['id' => 'eng', 'name' => 'Engineering', 'icon' => 'code', 'c' => '#3B82C4', 'desc' => 'Web, mobile, and platform engineering'],
+            ['id' => 'mkt', 'name' => 'Marketing', 'icon' => 'megaphone', 'c' => '#C54B78', 'desc' => 'Campaigns, content, and growth'],
+            ['id' => 'product', 'name' => 'Product', 'icon' => 'target', 'c' => '#C48A1E', 'desc' => 'Roadmap, planning, and QA'],
+        ], $this->getJson('/api/bootstrap')['data']['teams']);
     }
 
     public function testObjectsStayObjectsWhenEmpty(): void

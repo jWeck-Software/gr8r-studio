@@ -8,6 +8,7 @@ use App\Entity\Member;
 use App\Entity\Notification;
 use App\Entity\Project;
 use App\Entity\Task;
+use App\Entity\Team;
 use App\Entity\User;
 use App\Entity\Workspace;
 use Doctrine\ORM\EntityManagerInterface;
@@ -18,7 +19,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  * The demo Workspace "Gr8r Studio", ported from the frontend's src/data/seed.js with
  * dates relative to today. Every active Member gets a User with the demo password.
  *
- * Not yet seeded (their tickets add them): Teams, Files, Events and Saved views.
+ * Not yet seeded (their tickets add them): Files, Events and Saved views.
  */
 final class DemoSeed
 {
@@ -42,6 +43,7 @@ final class DemoSeed
             $this->purge();
             $ws = new Workspace('Gr8r Studio', self::WORKSPACE_URL, '#1D1C1A', true, ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7']);
             $this->em->persist($ws);
+            $this->teams($ws);
             $members = $this->members($ws);
             $projects = $this->projects($ws, $members['m1']);
             $tasks = $this->tasks($ws, $projects, $members);
@@ -58,6 +60,22 @@ final class DemoSeed
             ->execute(['url' => self::WORKSPACE_URL]);
         $this->em->createQuery('DELETE FROM '.User::class.' u WHERE u.email LIKE :domain')
             ->execute(['domain' => '%@gr8rstudio.com']);
+    }
+
+    /** The Teams of src/core/constants.js (TEAMS_SEED), which the frontend used before Teams were stored. */
+    private function teams(Workspace $ws): void
+    {
+        $rows = [
+            ['design', 'Design', 'palette', '#8662C9', 'Product design, brand, and research'],
+            ['eng', 'Engineering', 'code', '#3B82C4', 'Web, mobile, and platform engineering'],
+            ['mkt', 'Marketing', 'megaphone', '#C54B78', 'Campaigns, content, and growth'],
+            ['product', 'Product', 'target', '#C48A1E', 'Roadmap, planning, and QA'],
+        ];
+        foreach ($rows as [$id, $name, $icon, $c, $desc]) {
+            $team = new Team($id, $ws);
+            $team->update(['name' => $name, 'icon' => $icon, 'c' => $c, 'desc' => $desc]);
+            $this->em->persist($team);
+        }
     }
 
     /** @return array<string, Member> */
