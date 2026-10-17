@@ -31,7 +31,7 @@ security:
 
     # Note: Only the *first* matching rule is applied
     access_control:
-        - { path: ^/api/(health|login|signup|verify-email(/resend)?|invites/[^/]+(/accept)?)$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/(health|login|signup|verify-email(/resend)?|password/(forgot|reset)|invites/[^/]+(/accept)?)$, roles: PUBLIC_ACCESS }
         - { path: ^/api/, roles: IS_AUTHENTICATED }
 
 when@test:

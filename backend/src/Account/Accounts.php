@@ -23,7 +23,8 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
  * Accounts: signing up, verifying the email address with the link that is sent (App\Token\Tokens,
- * Purpose::VerifyEmail, valid for 24 hours), and starting a Workspace of one's own. Emails go out
+ * Purpose::VerifyEmail, valid for 24 hours), choosing a new password with a link by email
+ * (Purpose::ResetPassword, 30 minutes), and starting a Workspace of one's own. Emails go out
  * once what they are about has been stored (Transaction::afterCommit()); one that cannot be sent is
  * logged, and the User can ask for it again.
  */
@@ -98,6 +99,50 @@ final readonly class Accounts
             if (null !== $user && !$user->isVerified()) {
                 $this->sendAfterCommit($this->verificationEmail($user, $this->tokens->issue(Purpose::VerifyEmail, (string) $user->getId())));
             }
+        });
+    }
+
+    /**
+     * Emails a link to choose a new password (valid 30 minutes; it replaces an earlier one) when
+     * this address has a User; otherwise nothing happens, and the caller cannot tell.
+     */
+    public function forgotPassword(string $email): void
+    {
+        $this->transaction->run(function () use ($email): void {
+            $user = $this->user(trim($email));
+            if (null !== $user) {
+                $this->sendAfterCommit($this->resetEmail($user, $this->tokens->issue(Purpose::ResetPassword, (string) $user->getId())));
+            }
+        });
+    }
+
+    /**
+     * Gives the User whose password reset link holds this token the new password; the link stops
+     * working. The link reached their address, so they count as verified from now on (an open
+     * verification link stops working too). Their other sessions end (the password changed).
+     *
+     * @throws AccountRefused when the password is too weak (the link keeps working), or the link does not work (any more)
+     */
+    public function resetPassword(string $token, string $password): User
+    {
+        $weak = PasswordPolicy::whyWeak($password);
+        if (null !== $weak) {
+            throw AccountRefused::weakPassword($weak);
+        }
+
+        return $this->transaction->run(function () use ($token, $password): User {
+            try {
+                $id = $this->tokens->redeem(Purpose::ResetPassword, $token);
+            } catch (TokenRefused $refused) {
+                throw $refused->expired ? AccountRefused::expiredResetLink() : AccountRefused::unknownResetLink();
+            }
+            $user = $this->em->find(User::class, (int) $id) ?? throw AccountRefused::unknownResetLink();
+            $user->setPassword($this->hasher->hashPassword($user, $password));
+            $user->verify();
+            $this->tokens->revoke(Purpose::VerifyEmail, $id);
+            $this->em->flush();
+
+            return $user;
         });
     }
 
@@ -198,6 +243,17 @@ final readonly class Accounts
             ->subject('Verify your email address for Gr8r Studio')
             ->text(\sprintf(
                 "Hi %s,\n\nConfirm that this is your email address to finish signing up for Gr8r Studio:\n%s/#verify/%s\n\nThe link works once and expires in 24 hours. If you didn't sign up, you can ignore this email.\n",
+                $user->getName(), rtrim($this->frontendUrl, '/'), $token,
+            ));
+    }
+
+    private function resetEmail(User $user, string $token): Email
+    {
+        return (new Email())
+            ->to($user->getEmail())
+            ->subject('Reset your Gr8r Studio password')
+            ->text(\sprintf(
+                "Hi %s,\n\nChoose a new password for your Gr8r Studio account here:\n%s/#reset/%s\n\nThe link works once and expires in 30 minutes. If you didn't ask for it, you can ignore this email: your password has not changed.\n",
                 $user->getName(), rtrim($this->frontendUrl, '/'), $token,
             ));
     }

@@ -9,6 +9,8 @@ enum Purpose: string
     case Invite = 'invite';
     /** Verifying the email address of a User who signed up (the subject is the User's id). */
     case VerifyEmail = 'verify_email';
+    /** Choosing a new password of a User who forgot theirs (the subject is the User's id). */
+    case ResetPassword = 'reset_password';
 
     /** How long a link works after it was issued, as a DateTimeImmutable::modify() offset. */
     public function validFor(): string
@@ -16,6 +18,7 @@ enum Purpose: string
         return match ($this) {
             self::Invite => '+7 days',
             self::VerifyEmail => '+24 hours',
+            self::ResetPassword => '+30 minutes',
         };
     }
 }

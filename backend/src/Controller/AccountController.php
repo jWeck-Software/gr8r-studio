@@ -4,7 +4,9 @@ namespace App\Controller;
 
 use App\Account\AccountRefused;
 use App\Account\Accounts;
+use App\Account\ForgotPassword;
 use App\Account\ResendVerification;
+use App\Account\ResetPassword;
 use App\Account\SignUp;
 use App\Account\StartWorkspace;
 use App\Entity\User;
@@ -39,6 +41,28 @@ final class AccountController extends AbstractController
         $accounts->resendVerification($body->email);
 
         return new Response(status: 202);
+    }
+
+    /** Always 204, so the answer tells nothing about the address. */
+    #[Route('/api/password/forgot', name: 'api_password_forgot', methods: ['POST'])]
+    public function forgotPassword(#[MapRequestPayload(acceptFormat: 'json')] ForgotPassword $body, Accounts $accounts): Response
+    {
+        $accounts->forgotPassword($body->email);
+
+        return new Response(status: 204);
+    }
+
+    /** Choosing a new password with the link signs the User in, with the same body as /api/login. */
+    #[Route('/api/password/reset', name: 'api_password_reset', methods: ['POST'])]
+    public function resetPassword(#[MapRequestPayload(acceptFormat: 'json')] ResetPassword $body, Accounts $accounts, Security $security, SignedIn $signedIn): Response
+    {
+        try {
+            $user = $accounts->resetPassword($body->token, $body->password);
+        } catch (AccountRefused $refused) {
+            return new JsonResponse($refused->body(), $refused->status);
+        }
+
+        return $security->login($user, 'json_login', 'api') ?? new JsonResponse($signedIn->body($user));
     }
 
     /** Verifying signs the User in, with the same body as /api/login: `member` is null until they start a Workspace. */

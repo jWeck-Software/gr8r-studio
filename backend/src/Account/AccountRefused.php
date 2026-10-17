@@ -2,7 +2,7 @@
 
 namespace App\Account;
 
-/** What the server refuses about signing up, verifying or starting a Workspace, with the reason to show. */
+/** What the server refuses about signing up, verifying, passwords or starting a Workspace, with the reason to show. */
 final class AccountRefused extends \RuntimeException
 {
     private function __construct(
@@ -23,6 +23,18 @@ final class AccountRefused extends \RuntimeException
     public static function expiredLink(): self
     {
         return new self(410, 'expired', 'This verification link has expired. Sign in to send yourself a new one.');
+    }
+
+    /** No open password reset link has this token: it never existed, was used already or was replaced by a newer one. */
+    public static function unknownResetLink(): self
+    {
+        return new self(404, 'not_found', 'This password reset link is not valid any more. It may have been used already or replaced by a newer one.');
+    }
+
+    /** The password reset link is older than 30 minutes. */
+    public static function expiredResetLink(): self
+    {
+        return new self(410, 'expired', 'This password reset link has expired. Ask for a new one from the sign-in page.');
     }
 
     /** The password chosen is too weak (PasswordPolicy). */
