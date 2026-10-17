@@ -54,6 +54,14 @@ class Workspace
         return $this->brand;
     }
 
+    public function rename(string $name, string $url, string $c, bool $brand): void
+    {
+        $this->name = $name;
+        $this->url = $url;
+        $this->c = $c;
+        $this->brand = $brand;
+    }
+
     /** @return list<string> */
     public function getProjOrder(): array
     {
