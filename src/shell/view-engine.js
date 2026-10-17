@@ -55,17 +55,18 @@ export const FIELDS = {
     ],
   },
 };
+/** A view as it is before anyone changes it: no filters, manual order, grouped by status. */
+export const blankView = () => ({
+  filters: [],
+  sort: { f: 'manual', dir: 1 },
+  group: 'status',
+  q: '',
+  hidden: ['start', 'created', 'deps'],
+  colW: {},
+  showDone: true,
+});
 export function viewOf(key) {
-  if (!S.views[key])
-    S.views[key] = {
-      filters: [],
-      sort: { f: 'manual', dir: 1 },
-      group: key === 'tasks' || key === 'mytasks' ? 'status' : 'status',
-      q: '',
-      hidden: ['start', 'created', 'deps'],
-      colW: {},
-      showDone: true,
-    };
+  if (!S.views[key]) S.views[key] = blankView();
   return S.views[key];
 }
 export function matchF(t, f) {

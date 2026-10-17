@@ -26,7 +26,8 @@ export function diffData(prev, next, types) {
   return ops;
 }
 
-function same(a, b) {
+/** Whether two values are equal as JSON would have them (see above). */
+export function same(a, b) {
   if (a === b) return true;
   if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null || Array.isArray(a) !== Array.isArray(b)) return false;
   const defined = o => Object.keys(o).filter(k => o[k] !== undefined);

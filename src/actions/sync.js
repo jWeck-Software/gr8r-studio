@@ -4,8 +4,10 @@
    acceptInvite() from the page an Invite email links to (#join/<token>), signOut() and flush()
    (before an upload, which names a Task the server must know), which reach this module through
    store.js (onSession). Everything else happens on its own: every debounced save() diffs the synced
-   collections against the copy the server last confirmed and posts the ops, one request at
-   a time. A refused batch (403/422) reloads the Workspace and says why; a failed request
+   collections, and the Member's Preferences and view settings beside S.data (syncState), against
+   the copy the server last confirmed and posts the ops, one request at a time. When the server
+   keeps no Preferences or view settings for the Member yet, the sign-in keeps this browser's and
+   sends them (signedInState). A refused batch (403/422) reloads the Workspace and says why; a failed request
    (offline, 5xx) keeps the changes pending and retries on the next save or when the browser
    is back online. When the server renumbers a new Task whose key someone else took meanwhile,
    the new key replaces the local one (ADR 0002, ADR 0003).
@@ -18,10 +20,11 @@
    ===================================================================== */
 import { BACKEND, api } from '../core/api.js';
 import { diffData } from '../core/diff.js';
-import { SYNCED, afterSignIn, midEdit, mergeSnapshot } from '../core/sync-rules.js';
-import { S, me, onSave, onSession, task } from '../core/store.js';
+import { SYNCED, afterSignIn, midEdit, mergeSnapshot, signedInState, syncState } from '../core/sync-rules.js';
+import { DEFAULT_PREFS, S, me, onSave, onSession, ownPrefs, prefsOwnerIs, task } from '../core/store.js';
 import { toast } from '../ui/toast.js';
 import { render } from '../shell/render.js';
+import { blankView } from '../shell/view-engine.js';
 
 let synced = null; // what the server last confirmed, as a deep copy; null while signed out
 let session = 0; // bumped on every sign-in and sign-out, so late answers of an old session are dropped
@@ -36,8 +39,19 @@ let poll = 0; // the 60 s refresh timer while signed in
 let typedIn = null; // the field last typed into: its text may exist only in the page
 
 const REFRESH_MS = 60_000;
-const copyOf = data => JSON.parse(JSON.stringify(Object.fromEntries(SYNCED.map(c => [c, data[c]]))));
-const pending = () => !!synced && diffData(synced, copyOf(S.data), SYNCED).length > 0;
+const state = () => syncState(S.data, S.prefs, S.views, blankView());
+const copyOf = st => JSON.parse(JSON.stringify(Object.fromEntries(SYNCED.map(c => [c, st[c]]))));
+const pending = () => !!synced && diffData(synced, copyOf(state()), SYNCED).length > 0;
+const snapshotState = ({ data, prefs, views }) => ({ ...data, prefs, views });
+
+/* Puts a synced state into S: S.data, and the Member's prefs and views beside it. */
+function adopt(st) {
+  const { prefs, views, ...data } = st;
+  S.data = data;
+  S.prefs = { ...DEFAULT_PREFS, ...prefs };
+  S.views = views;
+  ownPrefs(data.me);
+}
 
 /** Boot: true when a session exists and its Workspace is loaded, false when nobody is signed in. Rejects with an ApiError otherwise. */
 export async function resumeSession() {
@@ -89,15 +103,16 @@ function signOut() {
   return signingOut;
 }
 
-async function loadWorkspace() {
+/* `keepLocal`: on signing in, keep this browser's Preferences and views where the server has none for the Member yet. */
+async function loadWorkspace({ keepLocal = true } = {}) {
   const s = ++session;
-  const { data } = await api.bootstrap();
+  const server = snapshotState(await api.bootstrap());
   if (s !== session) return;
-  // Preferences and view settings stay in this browser until they are synced too.
-  S.data = data;
-  synced = copyOf(data);
+  adopt(keepLocal ? signedInState(server, state(), prefsOwnerIs()) : server);
+  synced = copyOf(server);
   failing = false;
   watch();
+  push();
 }
 
 /* Signed in again as the Member whose session ended: S.data still holds their changes, so diffing
@@ -161,12 +176,12 @@ function refresh(mayApply) {
       if (inFlight || pending()) await settle();
       if (s !== session || pending()) return;
       const sent = sends;
-      const { data } = await api.bootstrap();
+      const server = snapshotState(await api.bootstrap());
       // A batch sent meanwhile may be missing from this snapshot: the next refresh brings it.
       if (s !== session || sends !== sent || inFlight || pending() || !mayApply()) return;
-      const next = mergeSnapshot(S.data, data, SYNCED);
+      const next = mergeSnapshot(state(), server, SYNCED);
       if (!next) return;
-      S.data = next;
+      adopt(next);
       synced = copyOf(next);
       dropVanished();
       render();
@@ -202,7 +217,7 @@ async function settle() {
 
 async function send() {
   const s = session;
-  const next = copyOf(S.data);
+  const next = copyOf(state());
   const ops = diffData(synced, next, SYNCED);
   if (!ops.length) return;
   sends++;
@@ -243,7 +258,7 @@ function applyKeys(keys, copies) {
 
 async function reloadAfterRefusal(message) {
   try {
-    await loadWorkspace();
+    await loadWorkspace({ keepLocal: false });
   } catch {
     /* unreachable now: the refused changes stay local and are sent (and refused) again on the next save */
   }

@@ -4,8 +4,9 @@ import { PCOLORS, TEAMS_SEED } from './constants.js';
 import { seed } from '../data/seed.js';
 import { BACKEND } from './api.js';
 
-/* In backend mode the server owns S.data: this browser keeps only prefs, views and the
-   sidebar state, under its own key so they never mix with the demo's saved workspace. */
+/* In backend mode the server owns S.data and keeps the Member's prefs and views: this browser keeps
+   a copy of those and the sidebar state, under its own key so they never mix with the demo's saved
+   workspace, together with the Member they belong to. */
 export const STORE_KEY = BACKEND ? 'gr8r.v2.backend' : 'gr8r.v2';
 export const DEFAULT_PREFS = {
   theme: 'system',
@@ -19,8 +20,6 @@ export const DEFAULT_PREFS = {
   motion: 'system',
   home: 'home',
   openTasks: 'drawer',
-  name: 'Tanjim Islam',
-  title: 'Head of Product',
 };
 export function load() {
   try {
@@ -87,6 +86,11 @@ export const S = {
     drag: null, // the card, row, calendar Task or sidebar Project being dragged (actions/drag-drop.js)
   },
 };
+/* Backend mode: the Member whose prefs and views S holds, the one they were last synced for; null when not known
+   (nobody signed in yet in this browser, or saved before this was kept). */
+let prefsOwner = (BACKEND && saved?.member) || null;
+export const prefsOwnerIs = () => prefsOwner;
+export const ownPrefs = member => (prefsOwner = member);
 export let _saveT;
 let afterSave = null;
 /* Backend mode's sync module registers here when it loads; it runs on every debounced save. */
@@ -104,7 +108,10 @@ export function save() {
   clearTimeout(_saveT);
   _saveT = setTimeout(() => {
     try {
-      localStorage.setItem(STORE_KEY, JSON.stringify({ data: BACKEND ? undefined : S.data, prefs: S.prefs, views: S.views, collapsed: S.ui.collapsed }));
+      localStorage.setItem(
+        STORE_KEY,
+        JSON.stringify({ data: BACKEND ? undefined : S.data, member: prefsOwner || undefined, prefs: S.prefs, views: S.views, collapsed: S.ui.collapsed }),
+      );
     } catch {
       /* storage full or blocked: keep working in memory */
     }

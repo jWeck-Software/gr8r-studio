@@ -1478,6 +1478,8 @@ A.delProject = el => {
           D().projects = D().projects.filter(x => x !== p);
           D().projOrder = D().projOrder.filter(x => x !== p.id);
           D().files = D().files.filter(f => f.project !== p.id);
+          D().events = D().events.filter(e => e.project !== p.id);
+          D().savedViews = D().savedViews.filter(v => v.project !== p.id);
         })
       ) {
         if (S.ui.route === 'project' && S.ui.params.id === p.id) go('projects');
@@ -2047,8 +2049,6 @@ A.saveProfile = () => {
   loadingBtn('pf-save', 600, () => {
     if (
       mutate(() => {
-        S.prefs.name = n;
-        S.prefs.title = tt;
         me().name = n;
         me().title = tt;
       })

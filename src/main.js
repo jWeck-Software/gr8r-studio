@@ -90,6 +90,8 @@ import { ROUTE_NAMES, render, go } from './shell/render.js';
   if (BACKEND && !token) {
     try {
       if (!(await resumeSession())) S.ui.auth ||= 'login';
+      // The Member's start page, now that their Preferences have come from the server.
+      else if (!ROUTE_NAMES[h]) S.ui.route = S.prefs.home || 'home';
     } catch (e) {
       S.ui.auth ||= 'login';
       S.ui.errors.login = e.message;
