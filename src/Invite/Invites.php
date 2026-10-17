@@ -5,6 +5,7 @@ namespace App\Invite;
 use App\Access\WorkspaceAccess;
 use App\Entity\Member;
 use App\Entity\User;
+use App\Mail\Emails;
 use App\Persistence\Transaction;
 use App\Repository\MemberRepository;
 use App\Security\PasswordPolicy;
@@ -12,10 +13,6 @@ use App\Token\Purpose;
 use App\Token\TokenRefused;
 use App\Token\Tokens;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
-use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -27,33 +24,23 @@ final readonly class Invites
 {
     public function __construct(
         private EntityManagerInterface $em,
-        private MailerInterface $mailer,
+        private Emails $emails,
         private Tokens $tokens,
         private Transaction $transaction,
-        private LoggerInterface $logger,
         private UserPasswordHasherInterface $hasher,
         private MemberRepository $members,
         private WorkspaceAccess $access,
-        #[Autowire('%env(APP_FRONTEND_URL)%')]
-        private string $frontendUrl,
     ) {
     }
 
     /**
      * Emails the invited Member a link to join, from the actor, once the running transaction has
-     * committed (Transaction::afterCommit()). The batch is stored by then, so an email that cannot
+     * committed (Emails::sendAfterCommit()). The batch is stored by then, so an email that cannot
      * be sent is logged rather than failing it; the actor can send the Invite again.
      */
     public function send(Member $actor, Member $invited): void
     {
-        $email = $this->issue($actor, $invited);
-        $this->transaction->afterCommit(function () use ($email, $invited): void {
-            try {
-                $this->mailer->send($email);
-            } catch (TransportExceptionInterface $e) {
-                $this->logger->error('The Invite email to {member} could not be sent: {reason}', ['member' => $invited->getId(), 'reason' => $e->getMessage()]);
-            }
-        });
+        $this->emails->sendAfterCommit($this->issue($actor, $invited), 'The Invite email to {member} could not be sent: {reason}', ['member' => $invited->getId()]);
     }
 
     /**
@@ -82,7 +69,8 @@ final readonly class Invites
 
             return $email;
         });
-        $this->mailer->send($email);
+        // Sent in the request, not after the commit: an email that cannot be sent reaches the actor.
+        $this->emails->send($email);
     }
 
     /**
@@ -206,8 +194,8 @@ final readonly class Invites
             ->to($invited->getEmail())
             ->subject(\sprintf('%s invited you to %s', $actor->getName(), $workspace))
             ->text(\sprintf(
-                "%s invited you to join %s on Gr8r Studio.\n\nChoose your password and join here:\n%s/#join/%s\n\nThe link works once and expires in 7 days. If you didn't expect this invite, you can ignore this email.\n",
-                $actor->getName(), $workspace, rtrim($this->frontendUrl, '/'), $token,
+                "%s invited you to join %s on Gr8r Studio.\n\nChoose your password and join here:\n%s\n\nThe link works once and expires in %s. If you didn't expect this invite, you can ignore this email.\n",
+                $actor->getName(), $workspace, $this->emails->link(Purpose::Invite, $token), Emails::lifetime(Purpose::Invite),
             ));
     }
 }

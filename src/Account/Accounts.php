@@ -8,6 +8,7 @@ use App\Entity\Team;
 use App\Entity\User;
 use App\Entity\Workspace;
 use App\File\Files;
+use App\Mail\Emails;
 use App\Persistence\Transaction;
 use App\Repository\MemberRepository;
 use App\Security\PasswordPolicy;
@@ -16,10 +17,6 @@ use App\Token\TokenRefused;
 use App\Token\Tokens;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
-use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -27,23 +24,20 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  * Accounts: signing up, verifying the email address with the link that is sent (App\Token\Tokens,
  * Purpose::VerifyEmail, valid for 24 hours), choosing a new password with a link by email
  * (Purpose::ResetPassword, 30 minutes), and starting a Workspace of one's own. Emails go out
- * once what they are about has been stored (Transaction::afterCommit()); one that cannot be sent is
+ * once what they are about has been stored (Emails::sendAfterCommit()); one that cannot be sent is
  * logged, and the User can ask for it again.
  */
 final readonly class Accounts
 {
     public function __construct(
         private EntityManagerInterface $em,
-        private MailerInterface $mailer,
+        private Emails $emails,
         private Tokens $tokens,
         private Transaction $transaction,
-        private LoggerInterface $logger,
         private UserPasswordHasherInterface $hasher,
         private MemberRepository $members,
         private WorkspaceAccess $access,
         private Files $files,
-        #[Autowire('%env(APP_FRONTEND_URL)%')]
-        private string $frontendUrl,
     ) {
     }
 
@@ -76,7 +70,7 @@ final readonly class Accounts
             // Hashed whether it is kept or not, so the answer takes as long for an address that has an account.
             $hash = $this->hasher->hashPassword($user ?? new User($email, $name), $password);
             if (null !== $user && $user->isVerified()) {
-                $this->sendAfterCommit($this->accountExistsEmail($user));
+                $this->emails->sendAfterCommit($this->accountExistsEmail($user));
 
                 return;
             }
@@ -88,7 +82,7 @@ final readonly class Accounts
             $user->rename($name);
             $user->setPassword($hash);
             $this->em->flush();
-            $this->sendAfterCommit($this->verificationEmail($user, $this->tokens->issue(Purpose::VerifyEmail, (string) $user->getId())));
+            $this->emails->sendAfterCommit($this->verificationEmail($user, $this->tokens->issue(Purpose::VerifyEmail, (string) $user->getId())));
         });
     }
 
@@ -101,7 +95,7 @@ final readonly class Accounts
         $this->transaction->run(function () use ($email): void {
             $user = $this->user(trim($email));
             if (null !== $user && !$user->isVerified()) {
-                $this->sendAfterCommit($this->verificationEmail($user, $this->tokens->issue(Purpose::VerifyEmail, (string) $user->getId())));
+                $this->emails->sendAfterCommit($this->verificationEmail($user, $this->tokens->issue(Purpose::VerifyEmail, (string) $user->getId())));
             }
         });
     }
@@ -115,7 +109,7 @@ final readonly class Accounts
         $this->transaction->run(function () use ($email): void {
             $user = $this->user(trim($email));
             if (null !== $user) {
-                $this->sendAfterCommit($this->resetEmail($user, $this->tokens->issue(Purpose::ResetPassword, (string) $user->getId())));
+                $this->emails->sendAfterCommit($this->resetEmail($user, $this->tokens->issue(Purpose::ResetPassword, (string) $user->getId())));
             }
         });
     }
@@ -280,25 +274,14 @@ final readonly class Accounts
             ->getOneOrNullResult();
     }
 
-    private function sendAfterCommit(Email $email): void
-    {
-        $this->transaction->afterCommit(function () use ($email): void {
-            try {
-                $this->mailer->send($email);
-            } catch (TransportExceptionInterface $e) {
-                $this->logger->error('The email "{subject}" could not be sent: {reason}', ['subject' => $email->getSubject(), 'reason' => $e->getMessage()]);
-            }
-        });
-    }
-
     private function verificationEmail(User $user, string $token): Email
     {
         return (new Email())
             ->to($user->getEmail())
             ->subject('Verify your email address for Gr8r Studio')
             ->text(\sprintf(
-                "Hi %s,\n\nConfirm that this is your email address to finish signing up for Gr8r Studio:\n%s/#verify/%s\n\nThe link works once and expires in 24 hours. If you didn't sign up, you can ignore this email.\n",
-                $user->getName(), rtrim($this->frontendUrl, '/'), $token,
+                "Hi %s,\n\nConfirm that this is your email address to finish signing up for Gr8r Studio:\n%s\n\nThe link works once and expires in %s. If you didn't sign up, you can ignore this email.\n",
+                $user->getName(), $this->emails->link(Purpose::VerifyEmail, $token), Emails::lifetime(Purpose::VerifyEmail),
             ));
     }
 
@@ -308,8 +291,8 @@ final readonly class Accounts
             ->to($user->getEmail())
             ->subject('Reset your Gr8r Studio password')
             ->text(\sprintf(
-                "Hi %s,\n\nChoose a new password for your Gr8r Studio account here:\n%s/#reset/%s\n\nThe link works once and expires in 30 minutes. If you didn't ask for it, you can ignore this email: your password has not changed.\n",
-                $user->getName(), rtrim($this->frontendUrl, '/'), $token,
+                "Hi %s,\n\nChoose a new password for your Gr8r Studio account here:\n%s\n\nThe link works once and expires in %s. If you didn't ask for it, you can ignore this email: your password has not changed.\n",
+                $user->getName(), $this->emails->link(Purpose::ResetPassword, $token), Emails::lifetime(Purpose::ResetPassword),
             ));
     }
 
@@ -320,8 +303,8 @@ final readonly class Accounts
             ->to($user->getEmail())
             ->subject('You already have a Gr8r Studio account')
             ->text(\sprintf(
-                "Hi %s,\n\nSomeone, hopefully you, tried to sign up for Gr8r Studio with this email address, which has an account already. Sign in here instead:\n%s/#login\n\nIf you forgot your password, choose \"Forgot password?\" there. If it wasn't you, you can ignore this email: your account has not changed.\n",
-                $user->getName(), rtrim($this->frontendUrl, '/'),
+                "Hi %s,\n\nSomeone, hopefully you, tried to sign up for Gr8r Studio with this email address, which has an account already. Sign in here instead:\n%s\n\nIf you forgot your password, choose \"Forgot password?\" there. If it wasn't you, you can ignore this email: your account has not changed.\n",
+                $user->getName(), $this->emails->page('login'),
             ));
     }
 }

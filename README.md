@@ -305,8 +305,14 @@ reverse proxy, configure `trusted_proxies`, or every client counts as the proxy'
   server's; what a put sends for them is ignored. Removing a Member unassigns their Tasks and drops
   them from every Project's Members and lead; their favorites go with them, and their User stays
   without a Workspace (`403 no_workspace`).
-- `src/Invite/Invites.php`: Invites, the one place that knows their links. `send()` (from the
-  member handler) and `resend()` (`POST /api/members/{id}/invite`) issue a fresh link and email it
+- `src/Mail/Emails.php`: the app's emails, the one place that builds their links
+  (`<APP_FRONTEND_URL>/#join/<token>`, `#verify/…`, `#reset/…`, `#login`), says how long a link
+  works in the words of `src/Token/Purpose.php` ("7 days", "24 hours", "30 minutes") and sends
+  them: after the commit (`sendAfterCommit()`, logged when one can't be sent) or at once (`send()`,
+  the failure reaches the caller).
+- `src/Invite/Invites.php`: Invites, the one place that issues and redeems their links. `send()`
+  (from the member handler, after the commit) and `resend()` (`POST /api/members/{id}/invite`, in
+  the request, so a failure reaches the actor) issue a fresh link and email it
   as `<APP_FRONTEND_URL>/#join/<token>`; `describe()` and `accept()` serve the two
   `/api/invites/{token}` endpoints. Its link's token (`src/Token/Tokens.php`) is valid for 7 days;
   a new link replaces the old one, and removing the Member revokes it. Accepting creates the User (password policy: `src/Security/PasswordPolicy.php`, as the
@@ -340,7 +346,7 @@ reverse proxy, configure `trusted_proxies`, or every client counts as the proxy'
   open Invite links are revoked, and its Files' content goes after the commit
   (`Files::forgetWorkspace()`); its Members' Users stay, without a Workspace (`403 no_workspace`), and
   may start one of their own.
-  Emails go out after the commit (`Transaction::afterCommit()`); one that can't be sent is logged.
+  Emails go out after the commit (`Emails::sendAfterCommit()`); one that can't be sent is logged.
 - `src/Token/Tokens.php`: one-time links, the one place that issues and redeems their tokens, for
   Invites, email verification and password reset (`src/Token/Purpose.php` says how long each
   works). A token is 32
