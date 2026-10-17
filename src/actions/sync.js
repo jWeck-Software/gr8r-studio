@@ -16,16 +16,10 @@
    ===================================================================== */
 import { BACKEND, api } from '../core/api.js';
 import { diffData } from '../core/diff.js';
-import { afterSignIn, midEdit, mergeSnapshot } from '../core/sync-rules.js';
+import { SYNCED, afterSignIn, midEdit, mergeSnapshot } from '../core/sync-rules.js';
 import { S, me, onSave, onSession, task } from '../core/store.js';
 import { toast } from '../ui/toast.js';
 import { render } from '../shell/render.js';
-
-/* Collections and singletons written through /api/sync, in the order the server applies them:
-   Projects before the Tasks and the Project order that refer to them, Tasks before the Comments
-   and Activity about them. Notifications are the server's; only their `read` flag goes back.
-   Grows ticket by ticket. */
-export const SYNCED = ['projects', 'tasks', 'projOrder', 'comments', 'activity', 'notifs'];
 
 let synced = null; // what the server last confirmed, as a deep copy; null while signed out
 let session = 0; // bumped on every sign-in and sign-out, so late answers of an old session are dropped

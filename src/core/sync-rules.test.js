@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { afterSignIn, midEdit, mergeSnapshot } from './sync-rules.js';
+import { SYNCED, afterSignIn, midEdit, mergeSnapshot } from './sync-rules.js';
 
 test('a refresh takes the synced collections from the server and keeps what lives only in this browser', () => {
   const local = { me: 'm1', tasks: [{ id: 't1', title: 'Old' }], savedViews: [{ id: 'v1' }], files: [{ id: 'f1' }] };
@@ -79,4 +79,22 @@ test('another Member signing in discards the changes left over from the ended se
 
 test('without leftover changes a sign-in just loads the Workspace', () => {
   assert.equal(afterSignIn(null, 'm1'), 'load');
+});
+
+test('the synced types go out in an order where every record comes after the records it names', () => {
+  const before = (a, b) => SYNCED.indexOf(a) >= 0 && SYNCED.indexOf(a) < SYNCED.indexOf(b);
+  // A Member names their Team; a Project its Team, lead and Members; a Task its Project and assignee;
+  // the Project order its Projects; Comments and Activity their Tasks.
+  for (const [named, naming] of [
+    ['teams', 'members'],
+    ['teams', 'projects'],
+    ['members', 'projects'],
+    ['members', 'tasks'],
+    ['projects', 'tasks'],
+    ['projects', 'projOrder'],
+    ['tasks', 'comments'],
+    ['tasks', 'activity'],
+  ])
+    assert.ok(before(named, naming), `${named} before ${naming}`);
+  assert.ok(SYNCED.includes('ws'));
 });

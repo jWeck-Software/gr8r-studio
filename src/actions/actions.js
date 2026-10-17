@@ -31,6 +31,7 @@ import { TEMPLATES, closeModal, openModal } from '../overlays/modals.js';
 import { closePop, openPop, tgt } from '../overlays/popovers.js';
 import { strengthMeter } from '../pages/settings.js';
 import { BACKEND } from '../core/api.js';
+import { slug } from '../core/slug.js';
 
 export const A = {},
   IN = {},
@@ -1605,11 +1606,15 @@ A.removeMember = el => {
           D().tasks.forEach(t => {
             if (t.assignee === m.id) t.assignee = null;
           });
-          D().projects.forEach(p => (p.members = p.members.filter(x => x !== m.id)));
+          D().projects.forEach(p => {
+            p.members = p.members.filter(x => x !== m.id);
+            if (p.lead === m.id) p.lead = null;
+          });
         })
       ) {
         if (S.ui.route === 'member') go('members');
-        toast(`Removed ${m.name}`, { action: 'Undo', onAction: () => restore(snap) });
+        // On the server the removed Member's sign-in is cut loose from the Workspace: undo cannot bring them back.
+        toast(`Removed ${m.name}`, BACKEND ? {} : { action: 'Undo', onAction: () => restore(snap) });
       }
     },
   });
@@ -1921,10 +1926,7 @@ A.wsColor = el => {
 };
 A.saveWorkspace = () => {
   const n = $('#ws-name').value.trim();
-  const u = $('#ws-url')
-    .value.trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, '-');
+  const u = slug($('#ws-url').value);
   if (!n) {
     toast("Workspace name can't be empty", { kind: 'err' });
     return;
