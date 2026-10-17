@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use App\Repository\UserRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -10,7 +11,7 @@ use Symfony\Component\Security\Core\User\UserInterface;
  * A person who can sign in, identified by an email address and a password. Whoever signs up is
  * unverified until they open the link emailed to that address; until then they cannot sign in.
  */
-#[ORM\Entity]
+#[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: 'app_user')]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {

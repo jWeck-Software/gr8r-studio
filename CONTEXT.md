@@ -9,7 +9,7 @@ A project management workspace where a team plans projects, tracks tasks and tal
 **User**:
 A person who can sign in, identified by an email address and a password. Whoever signs up starts their own Workspace, as its Owner, once they are verified. A User who forgot their password chooses a new one with a link emailed to them, which works once for 30 minutes; a new password signs them out everywhere else.
 _Avoid_: account, login
-In code, "account" stays as a name for what a User does for themselves: signing up, verifying, passwords, starting and deleting their Workspace (`App\Account\Accounts`, `AccountController`, `AccountRefused`), and the Invite link's `account` key (whether the address has a User already). Text about the domain says User.
+In code, "account" stays as a name for what a User does for themselves: signing up, verifying, passwords, starting and deleting their Workspace (the `App\Account` namespace, `AccountController`, `AccountRefused`), and the Invite link's `account` key (whether the address has a User already). Text about the domain says User.
 
 **Verified**:
 A User is verified once they proved the email address is theirs, by opening the link sent to it when they signed up, the link of an Invite or a password reset link. An unverified User cannot sign in; signing up again before verifying starts over with a new link.

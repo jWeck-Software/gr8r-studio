@@ -319,8 +319,9 @@ reverse proxy, configure `trusted_proxies`, or every client counts as the proxy'
   app's) or, when the address has a User already (a removed Member's User stays), requires that
   User's current password and keeps it; then the Member is active and the controller signs them in
   (`Security::login()`).
-- `src/Account/Accounts.php`: signing up, verifying, passwords, and starting and deleting a
-  Workspace, the one place that knows the rules of an account. `signUp()` applies the password
+- `src/Account/`: signing up and verifying (`SignUps.php`), passwords (`Passwords.php`), and
+  starting and deleting a Workspace (`Workspaces.php`), the one place that knows the rules of an
+  account. `signUp()` applies the password
   policy, then answers the same
   for every address: a new one becomes an unverified User and gets a verification link; one with a
   verified User gets a "you already have an account" email and nothing changes; one with an

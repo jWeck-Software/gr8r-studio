@@ -85,7 +85,7 @@ Where this backend knowingly departs from the conventions above, and why:
 - **The password policy is `App\Security\PasswordPolicy`, not a Validator constraint.** Accepting an
   Invite applies it only when a new User is created; when the address has a User already, that
   User's current password is checked instead, which a constraint on the request DTO can't tell apart.
-  Signing up (`App\Account\Accounts`) calls the same policy, so both say it in the same words.
+  Signing up (`App\Account\SignUps`) calls the same policy, so both say it in the same words.
 - **Routes never name a placeholder `{id}`: `{invited}`, `{file}` and so on.** Doctrine's entity
   value resolver maps an `{id}` placeholder onto a `Member $member` argument before
   `CurrentMemberResolver` runs, so the signed-in actor would become whatever the id names
@@ -110,9 +110,9 @@ Where this backend knowingly departs from the conventions above, and why:
 - **Numbering Tasks locks the Project row (`FOR UPDATE`), not `symfony/lock`.** The lock has to last
   exactly as long as the sync transaction that stores the keys, and the database is what every
   server shares.
-- **Code says "account" where CONTEXT.md says User.** `App\Account\Accounts`, `AccountController`,
-  `AccountRefused` and the `account` key of an Invite link's body (whether the address has a User
-  already) keep the name: they gather what a User does for themselves (signing up, verifying,
+- **Code says "account" where CONTEXT.md says User.** The `App\Account` namespace (`SignUps`,
+  `Passwords`, `Workspaces`), `AccountController`, `AccountRefused` and the `account` key of an
+  Invite link's body (whether the address has a User already) keep the name: they gather what a User does for themselves (signing up, verifying,
   passwords, starting and deleting their Workspace). New domain names, messages and docs say User.
 
 ## Everyday workflow
