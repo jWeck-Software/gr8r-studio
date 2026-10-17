@@ -61,6 +61,23 @@ Three specifics worth spelling out, because they are easy to get wrong:
 - Use `symfony/lock` (`LockFactory`) for mutual exclusion. A hand-built flag or
   lock file looks fine in review and is usually wrong under concurrency.
 
+## Deviations in this project
+
+Where this backend knowingly departs from the conventions above, and why:
+
+- **Records are validated by `App\Sync\Fields`, not the Validator.** `#[MapRequestPayload]` binds
+  only the sync envelope (`App\Sync\Batch`, `{ops: [...]}`). The records inside the ops keep the
+  frontend's shape (ADR 0002), differ per collection, and are checked against what is stored (what a
+  Member may change); each handler reads them through `Fields`, which names the field in the 422.
+- **Access is `App\Access\ProjectAccess`, a service, not voters.** The snapshot filters whole lists
+  (Projects, Tasks, Comments, Activity) down to what a Member sees; voters decide one subject at a
+  time. The snapshot and every sync handler ask `ProjectAccess`, so the rules live in one place.
+- **The sign-in body is read by the firewall's `json_login`** (as the spec says), not by
+  `#[MapRequestPayload]`; `AuthController::login` only answers what `json_login` doesn't take.
+- **Numbering Tasks locks the Project row (`FOR UPDATE`), not `symfony/lock`.** The lock has to last
+  exactly as long as the sync transaction that stores the keys, and the database is what every
+  server shares.
+
 ## Everyday workflow
 
 - Run the app with `symfony serve -d`, and commands with `symfony console ...`
