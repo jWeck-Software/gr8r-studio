@@ -140,6 +140,46 @@ final class GuestsTest extends ApiTestCase
         self::assertSame(['ax7k2m9', 'a6'], array_column($data['activity'], 'id'));
     }
 
+    public function testAGuestEditsTheirOwnProfile(): void
+    {
+        $mg1 = $this->record('members', 'mg1');
+
+        $body = $this->sync([['op' => 'put', 'type' => 'members', 'id' => 'mg1', 'data' => [...$mg1, 'name' => 'Gale Gray', 'title' => 'Illustrator', 'c' => '#23918A']]]);
+
+        self::assertSame(['ok' => true], $body);
+        self::assertSame(['Gale Gray', 'Illustrator', '#23918A'], array_values(array_intersect_key($this->record('members', 'mg1'), ['name' => 0, 'title' => 0, 'c' => 0])));
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function peopleAndSettings(): iterable
+    {
+        yield 'make herself a Member' => ['own role', 'Only Owners and Admins change Roles.'];
+        yield 'join a Team' => ['own team', 'Only Owners and Admins assign Teams.'];
+        yield 'invite someone' => ['invite', 'Only Owners and Admins invite people.'];
+        yield 'remove a Member' => ['remove', 'Only Owners and Admins remove Members.'];
+        yield 'create a Team' => ['team', 'Only Owners and Admins manage Teams.'];
+        yield 'rename the Workspace' => ['ws', 'Only Owners and Admins change the Workspace\'s settings.'];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('peopleAndSettings')]
+    public function testAGuestManagesNoPeopleTeamsOrSettings(string $write, string $message): void
+    {
+        $mg1 = $this->record('members', 'mg1');
+        $op = match ($write) {
+            'own role' => ['op' => 'put', 'type' => 'members', 'id' => 'mg1', 'data' => [...$mg1, 'role' => 'Member']],
+            'own team' => ['op' => 'put', 'type' => 'members', 'id' => 'mg1', 'data' => [...$mg1, 'team' => 'design']],
+            'invite' => ['op' => 'put', 'type' => 'members', 'id' => 'mq7x2', 'data' => [...$mg1, 'id' => 'mq7x2', 'email' => 'friend@guest.test', 'status' => 'invited']],
+            'remove' => ['op' => 'delete', 'type' => 'members', 'id' => 'm5'],
+            'team' => ['op' => 'put', 'type' => 'teams', 'id' => 'tmq7x2', 'data' => ['id' => 'tmq7x2', 'name' => 'Guests', 'icon' => 'users', 'c' => '#6B7280', 'desc' => '']],
+            'ws' => ['op' => 'set', 'type' => 'ws', 'data' => ['name' => 'Gale & Co', 'url' => 'gale', 'c' => '#6B7280', 'brand' => false]],
+        };
+
+        $body = $this->sync([$op]);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(['error' => 'forbidden', 'op' => 0, 'message' => $message], $body);
+    }
+
     /** @param list<array<string, mixed>> $ops */
     private function sync(array $ops): array
     {
