@@ -33,7 +33,10 @@ class File
         /** The display string the frontend shows, e.g. "4.2 MB" (fsize()). */
         #[ORM\Column(length: 20)]
         private string $size,
-        /** The uploader's Member id. */
+        /**
+         * The uploader's Member id, a plain column without a foreign key on purpose: the File keeps
+         * its uploader after that Member is removed, as Comment and Activity keep their author.
+         */
         #[ORM\Column(name: 'uploader', length: 44)]
         private string $by,
         /** Epoch milliseconds. */
