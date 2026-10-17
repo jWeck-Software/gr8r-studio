@@ -44,7 +44,11 @@
   margin: 0;
   text-align: center;
 }
+/* .sub is also the sidebar's collapsible sub-list (shell.css), hidden until .open */
 .auth-card .sub {
+  display: block;
+  padding-left: 0;
+  border-left: 0;
   text-align: center;
   color: var(--text-2);
   margin: -8px 0 4px;
