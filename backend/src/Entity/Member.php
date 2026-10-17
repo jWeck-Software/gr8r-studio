@@ -69,6 +69,25 @@ class Member
         return $this->user;
     }
 
+    public function getRole(): string
+    {
+        return $this->role;
+    }
+
+    /**
+     * What a Member's put may change; the rest (email, status, last active, time zone) is the server's.
+     *
+     * @param array{name: string, title: string, c: string, role: string, team: string} $changes
+     */
+    public function update(array $changes): void
+    {
+        $this->name = $changes['name'];
+        $this->title = $changes['title'];
+        $this->c = $changes['c'];
+        $this->role = $changes['role'];
+        $this->team = $changes['team'];
+    }
+
     /** Stars or unstars a record of a collection, such as a Project in "projects", for this Member only. */
     public function star(string $collection, string $id, bool $starred): void
     {

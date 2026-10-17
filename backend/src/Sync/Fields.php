@@ -15,18 +15,30 @@ final readonly class Fields
     ) {
     }
 
-    public function string(string $field): string
+    /** @param int|null $maxLength the most characters the value may have, when it is stored in a column of that length */
+    public function string(string $field, ?int $maxLength = null): string
+    {
+        $value = $this->required($field);
+        if (!\is_string($value)) {
+            throw $this->wrong($field, 'a string');
+        }
+
+        return null === $maxLength || mb_strlen($value) <= $maxLength ? $value : throw $this->wrong($field, \sprintf('a string of at most %d characters', $maxLength));
+    }
+
+    public function nonEmptyString(string $field, ?int $maxLength = null): string
+    {
+        $value = $this->string($field, $maxLength);
+
+        return '' !== trim($value) ? $value : throw $this->wrong($field, 'a non-empty string');
+    }
+
+    /** A colour as the frontend writes it, #RRGGBB. */
+    public function colour(string $field): string
     {
         $value = $this->required($field);
 
-        return \is_string($value) ? $value : throw $this->wrong($field, 'a string');
-    }
-
-    public function nonEmptyString(string $field): string
-    {
-        $value = $this->string($field);
-
-        return '' !== trim($value) ? $value : throw $this->wrong($field, 'a non-empty string');
+        return \is_string($value) && 1 === preg_match('/^#[0-9A-Fa-f]{6}$/', $value) ? $value : throw $this->wrong($field, 'a colour like #5A67D8');
     }
 
     public function nullableString(string $field, int $maxLength = 200): ?string
