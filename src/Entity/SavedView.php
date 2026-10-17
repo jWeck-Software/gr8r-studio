@@ -24,7 +24,7 @@ class SavedView
     private string $type = '';
 
     /** @var list<array{f: string, op: string, v: list<string>}> */
-    #[ORM\Column(type: Types::JSON, options: ['jsonb' => true])]
+    #[ORM\Column(type: Types::JSON)]
     private array $filters = [];
 
     public function __construct(

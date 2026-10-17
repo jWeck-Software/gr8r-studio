@@ -14,14 +14,14 @@ use Doctrine\ORM\Mapping as ORM;
 class Member
 {
     /** @var array<string, list<string>> the ids this Member starred, by collection ("projects", "tasks") */
-    #[ORM\Column(type: Types::JSON, options: ['jsonb' => true])]
+    #[ORM\Column(type: Types::JSON)]
     private array $favorites = [];
 
     /**
      * @var array<string, mixed> the Member's own singletons of the frontend, by type ("prefs", "views",
      *                           "notifPrefs", "recentSearches"), as App\Sync\Handler\PersonalSetting stored them
      */
-    #[ORM\Column(type: Types::JSON, options: ['jsonb' => true, 'default' => '{}'])]
+    #[ORM\Column(type: Types::JSON, options: ['default' => '{}'])]
     private array $personal = [];
 
     public function __construct(

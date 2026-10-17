@@ -9,7 +9,8 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity]
 class Project
 {
-    #[ORM\Column(length: 20)]
+    // KEY is reserved in MariaDB.
+    #[ORM\Column(name: 'project_key', length: 20)]
     private string $key = '';
 
     #[ORM\Column(length: 200)]
@@ -37,14 +38,14 @@ class Project
     private ?\DateTimeImmutable $start = null;
 
     /** @var list<string> Member ids */
-    #[ORM\Column(type: Types::JSON, options: ['jsonb' => true])]
+    #[ORM\Column(type: Types::JSON)]
     private array $members = [];
 
     #[ORM\Column(type: Types::TEXT)]
     private string $description = '';
 
     /** @var list<array{name: string, date: string}> */
-    #[ORM\Column(type: Types::JSON, options: ['jsonb' => true])]
+    #[ORM\Column(type: Types::JSON)]
     private array $milestones = [];
 
     #[ORM\Column(nullable: true)]

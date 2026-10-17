@@ -19,9 +19,10 @@ class Token
         #[ORM\Column(length: 20)]
         private string $purpose,
         #[ORM\Id]
-        #[ORM\Column(length: 64)]
+        #[ORM\Column(length: 64, options: ['collation' => 'utf8mb4_bin'])]
         private string $subject,
-        #[ORM\Column(length: 64, unique: true)]
+        // Binary: a token hash matches exactly or not at all.
+        #[ORM\Column(length: 64, unique: true, options: ['collation' => 'utf8mb4_bin'])]
         private string $hash,
         #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE)]
         private \DateTimeImmutable $expiresAt,

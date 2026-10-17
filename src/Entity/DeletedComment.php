@@ -26,7 +26,7 @@ class DeletedComment
         #[ORM\Column(length: 44)]
         private string $task,
         /** The Comment's author, time, text and Reactions, as they were. */
-        #[ORM\Column(type: Types::JSON, options: ['jsonb' => true])]
+        #[ORM\Column(type: Types::JSON)]
         private array $record,
     ) {
     }

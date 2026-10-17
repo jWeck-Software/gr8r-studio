@@ -10,14 +10,15 @@ use Doctrine\ORM\Mapping as ORM;
  * stored with the Task; its Attachments are the Files attached to it (App\Entity\File).
  */
 #[ORM\Entity]
-#[ORM\UniqueConstraint(name: 'task_key_per_project', columns: ['project_id', 'key'])]
+#[ORM\UniqueConstraint(name: 'task_key_per_project', columns: ['project_id', 'task_key'])]
 class Task
 {
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private Project $project;
 
-    #[ORM\Column(length: 30)]
+    // KEY is reserved in MariaDB.
+    #[ORM\Column(name: 'task_key', length: 30)]
     private string $key = '';
 
     #[ORM\Column(type: Types::TEXT)]
@@ -40,15 +41,15 @@ class Task
     private ?\DateTimeImmutable $start = null;
 
     /** @var list<string> */
-    #[ORM\Column(type: Types::JSON, options: ['jsonb' => true])]
+    #[ORM\Column(type: Types::JSON)]
     private array $labels = [];
 
     /** @var list<array{id: string, title: string, done: bool}> */
-    #[ORM\Column(type: Types::JSON, options: ['jsonb' => true])]
+    #[ORM\Column(type: Types::JSON)]
     private array $subtasks = [];
 
     /** @var list<string> ids of the Tasks this Task depends on */
-    #[ORM\Column(type: Types::JSON, options: ['jsonb' => true])]
+    #[ORM\Column(type: Types::JSON)]
     private array $deps = [];
 
     #[ORM\Column(type: Types::TEXT)]

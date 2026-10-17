@@ -23,7 +23,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private string $password = '';
 
     public function __construct(
-        #[ORM\Column(length: 180, unique: true)]
+        // Stored lowercased; binary, so that addresses differing only in accents stay distinct.
+        #[ORM\Column(length: 180, unique: true, options: ['collation' => 'utf8mb4_bin'])]
         private string $email,
         #[ORM\Column(length: 120)]
         private string $name,

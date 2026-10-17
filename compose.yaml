@@ -1,24 +1,6 @@
-name: gr8r-db
+name: gr8r
 
 services:
-  database:
-    image: postgres:17-alpine
-    container_name: gr8r-db
-    environment:
-      POSTGRES_DB: gr8r
-      POSTGRES_USER: gr8r
-      POSTGRES_PASSWORD: gr8r
-    ports:
-      - '5433:5432'
-    healthcheck:
-      test: ['CMD', 'pg_isready', '-d', 'gr8r', '-U', 'gr8r']
-      interval: 2s
-      timeout: 5s
-      retries: 30
-      start_period: 5s
-    volumes:
-      - gr8r-db-data:/var/lib/postgresql/data
-
   # Catches the emails the backend sends in dev (MAILER_DSN in .env): SMTP on 1025, inbox on http://127.0.0.1:8025
   mailer:
     image: axllent/mailpit
@@ -29,6 +11,3 @@ services:
     environment:
       MP_SMTP_AUTH_ACCEPT_ANY: 1
       MP_SMTP_AUTH_ALLOW_INSECURE: 1
-
-volumes:
-  gr8r-db-data:

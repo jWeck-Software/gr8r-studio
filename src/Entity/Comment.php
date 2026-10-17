@@ -28,7 +28,7 @@ class Comment
     private string $text = '';
 
     /** @var array<string, list<string>> */
-    #[ORM\Column(type: Types::JSON, options: ['jsonb' => true])]
+    #[ORM\Column(type: Types::JSON)]
     private array $re = [];
 
     public function __construct(

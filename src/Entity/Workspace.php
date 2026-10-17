@@ -24,7 +24,7 @@ class Workspace
         private string $c,
         #[ORM\Column]
         private bool $brand = false,
-        #[ORM\Column(type: Types::JSON, options: ['jsonb' => true])]
+        #[ORM\Column(type: Types::JSON)]
         private array $projOrder = [],
     ) {
     }

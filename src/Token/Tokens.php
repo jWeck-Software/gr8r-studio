@@ -55,7 +55,7 @@ final readonly class Tokens
      * Whom the link holding this token was issued for; it stops working at once, in the caller's
      * transaction. Of two requests that redeem one link at the same time, one gets the subject and
      * the other waits for its transaction and then finds the link used up (unknown): the row is
-     * deleted and read back in one statement, which takes its lock.
+     * deleted and read back in one statement (DELETE … RETURNING, MariaDB 10.5+), which takes its lock.
      *
      * @throws TokenRefused
      */

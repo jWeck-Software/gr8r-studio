@@ -22,7 +22,7 @@ class DeletedTask
         #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
         private Workspace $workspace,
         /** The Task as it was, in the frontend's shape. */
-        #[ORM\Column(type: Types::JSON, options: ['jsonb' => true])]
+        #[ORM\Column(type: Types::JSON)]
         private array $record,
     ) {
     }

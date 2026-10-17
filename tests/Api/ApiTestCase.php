@@ -58,7 +58,7 @@ abstract class ApiTestCase extends WebTestCase
 
     /**
      * Strict comparison of JSON records that ignores the order of object keys:
-     * PostgreSQL's JSONB does not keep it, and the frontend does not depend on it.
+     * the frontend does not depend on it, so the database need not keep it.
      *
      * @param array<mixed> $expected
      * @param array<mixed> $actual
