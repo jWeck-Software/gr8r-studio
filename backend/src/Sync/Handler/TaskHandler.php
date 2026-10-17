@@ -4,6 +4,7 @@ namespace App\Sync\Handler;
 
 use App\Access\ProjectAccess;
 use App\Entity\Comment;
+use App\Entity\DeletedTask;
 use App\Entity\Member;
 use App\Entity\Project;
 use App\Entity\Task;
@@ -55,7 +56,8 @@ final readonly class TaskHandler implements CollectionHandler
         }
 
         $task = $this->em->find(Task::class, $id);
-        if (null !== $task && $task->getWorkspace() !== $ws) {
+        $deleted = null === $task ? $this->em->find(DeletedTask::class, $id) : null;
+        if (null !== ($task ?? $deleted) && ($task ?? $deleted)->getWorkspace() !== $ws) {
             throw SyncRejected::invalid(\sprintf('The id "%s" is already used.', $id));
         }
         $untouched = static fn (array $r): array => array_diff_key($r, ['updated' => 0]);
@@ -71,8 +73,9 @@ final readonly class TaskHandler implements CollectionHandler
             $this->authorize($actor, $task->getProject());
         }
         $this->authorize($actor, $project);
-        // Read before the update: the assign rule compares against the Task as it was.
-        $old = $task?->toRecord();
+        // Read before the update: the assign rule compares against the Task as it was, also when
+        // undo brings back a deleted one.
+        $old = $task?->toRecord() ?? $deleted?->getRecord();
         $reply = [];
         if (null === $old || $old['key'] !== $record['key'] || $old['project'] !== $record['project']) {
             // Batches that number Tasks in this Project take turns until their transaction ends, so
@@ -89,6 +92,9 @@ final readonly class TaskHandler implements CollectionHandler
             }
         }
 
+        if (null !== $deleted) {
+            $this->em->remove($deleted);
+        }
         if (null === $task) {
             $task = new Task($id, $ws);
             $this->em->persist($task);
@@ -110,15 +116,16 @@ final readonly class TaskHandler implements CollectionHandler
     }
 
     /**
-     * Removes the Task and its Comments, which undo can put back as their authors'. Through the
-     * entity manager, not only by the database's cascade, so later ops of the same batch see them
-     * gone. Activity about the Task stays.
+     * Removes the Task and its Comments, keeping what undo needs: the Task as it was, and the
+     * Comments as their authors'. Through the entity manager, not only by the database's cascade,
+     * so later ops of the same batch see them gone. Activity about the Task stays.
      */
     public function remove(Task $task): void
     {
         foreach ($this->em->getRepository(Comment::class)->findBy(['task' => $task]) as $comment) {
             $this->comments->remove($comment);
         }
+        $this->em->persist(DeletedTask::of($task));
         $this->em->remove($task);
     }
 

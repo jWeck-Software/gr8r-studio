@@ -85,7 +85,9 @@ health and login answers `401 {"error":"unauthenticated"}`.
   Project stay, but bootstrap shows only those about visible Projects or about no Project.
 - `src/Notification/NotificationRules.php`: which Notifications a put makes, as a pure function:
   a changed `assignee` notifies the new assignee, a new Comment notifies the Members it mentions as
-  `@Full Name` (longest names first) and the Task's assignee; never the actor. `Notifier.php` stores
+  `@Full Name` (longest names first) and the Task's assignee; never the actor. A deleted Task leaves a
+  `DeletedTask` behind (never in bootstrap), so when undo puts it again it is compared with the Task
+  as it was and its assignee is not notified again. `Notifier.php` stores
   them for recipients who see the Task's Project; task and comment handlers call it.
 - `src/Sync/Handler/NotificationHandler.php`: Notifications are the server's; their recipient may
   only change `read` (anything else, or someone else's, is 403). A Notification the client made up

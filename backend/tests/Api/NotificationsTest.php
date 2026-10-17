@@ -150,6 +150,23 @@ final class NotificationsTest extends ApiTestCase
         self::assertSame($before, $this->getJson('/api/bootstrap')['data']['notifs']);
     }
 
+    /** The Owner deletes John's t4 and undoes it: the Task comes back to John without telling him it is his again. */
+    public function testUndoingTheDeletionOfAnAssignedTaskNotifiesNobody(): void
+    {
+        $this->signIn('john@gr8rstudio.com');
+        $before = $this->notifs();
+        $this->switchTo(self::OWNER_EMAIL);
+        $t4 = $this->task('t4');
+        $this->sync([['op' => 'delete', 'type' => 'tasks', 'id' => 't4']]);
+
+        $this->sync([['op' => 'put', 'type' => 'tasks', 'id' => 't4', 'data' => $t4]]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame('m3', $this->task('t4')['assignee']);
+        $this->switchTo('john@gr8rstudio.com');
+        self::assertSame($before, $this->notifs());
+    }
+
     public function testTheRecipientMarksANotificationReadAndUnread(): void
     {
         $notif = $this->notifySarah();
