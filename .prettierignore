@@ -13,6 +13,5 @@ package-lock.json
 /composer.json
 /composer.lock
 /symfony.lock
-/compose.yaml
 /phpunit.dist.xml
 /AGENTS.md
