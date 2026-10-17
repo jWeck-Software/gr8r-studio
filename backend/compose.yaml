@@ -19,5 +19,16 @@ services:
     volumes:
       - gr8r-db-data:/var/lib/postgresql/data
 
+  # Catches the emails the backend sends in dev (MAILER_DSN in .env): SMTP on 1025, inbox on http://127.0.0.1:8025
+  mailer:
+    image: axllent/mailpit
+    container_name: gr8r-mailpit
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
 volumes:
   gr8r-db-data:
