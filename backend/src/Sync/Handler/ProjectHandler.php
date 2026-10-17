@@ -19,6 +19,7 @@ final readonly class ProjectHandler implements CollectionHandler
     public function __construct(
         private EntityManagerInterface $em,
         private ProjectAccess $access,
+        private TaskHandler $tasks,
     ) {
     }
 
@@ -79,13 +80,14 @@ final readonly class ProjectHandler implements CollectionHandler
     }
 
     /**
-     * Everything that lives inside a Project goes with it. Removed through the entity manager,
-     * not only by the database's cascade, so later ops of the same batch see them gone.
+     * Everything that lives inside a Project goes with it: its Tasks and their Comments. Removed
+     * through the entity manager, not only by the database's cascade, so later ops of the same
+     * batch see them gone.
      */
     private function deleteContents(Project $project): void
     {
         foreach ($this->em->getRepository(Task::class)->findBy(['project' => $project]) as $task) {
-            $this->em->remove($task);
+            $this->tasks->remove($task);
         }
     }
 

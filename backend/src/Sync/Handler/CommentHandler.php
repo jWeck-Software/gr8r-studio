@@ -1,0 +1,127 @@
+<?php
+
+namespace App\Sync\Handler;
+
+use App\Access\ProjectAccess;
+use App\Entity\Comment;
+use App\Entity\Member;
+use App\Entity\Task;
+use App\Sync\CollectionHandler;
+use App\Sync\Fields;
+use App\Sync\SyncRejected;
+use Doctrine\ORM\EntityManagerInterface;
+
+/** Comments on Tasks and their Reactions. */
+final readonly class CommentHandler implements CollectionHandler
+{
+    public function __construct(
+        private EntityManagerInterface $em,
+        private ProjectAccess $access,
+    ) {
+    }
+
+    public function type(): string
+    {
+        return 'comments';
+    }
+
+    public function put(Member $actor, string $id, array $data): array
+    {
+        $ws = $actor->getWorkspace();
+        $fields = new Fields($data, 'Comment');
+        $record = [
+            'task' => $fields->string('task'),
+            'by' => $fields->string('by'),
+            'at' => $fields->timestamp('at'),
+            'text' => $fields->nonEmptyString('text'),
+            're' => $fields->stringListMap('re'),
+        ];
+
+        $task = $this->em->find(Task::class, $record['task']);
+        if (null === $task || $task->getWorkspace() !== $ws) {
+            throw SyncRejected::invalid(\sprintf('The Comment\'s Task "%s" does not exist.', $record['task']));
+        }
+        $this->assertSees($actor, $task);
+
+        $comment = $this->em->find(Comment::class, $id);
+        if (null !== $comment && $comment->getWorkspace() !== $ws) {
+            throw SyncRejected::invalid(\sprintf('The id "%s" is already used.', $id));
+        }
+        if (null === $comment) {
+            $comment = new Comment($id, $ws);
+            $this->em->persist($comment);
+            // A new Comment is the signed-in Member's, whoever the client names (ADR 0003).
+            $comment->update([...$record, 'by' => $actor->getId()], $task);
+
+            return [];
+        }
+        $this->authorizeChange($actor, $comment, $record);
+        $comment->update($record, $task);
+
+        return [];
+    }
+
+    public function delete(Member $actor, string $id): void
+    {
+        $comment = $this->em->find(Comment::class, $id);
+        if (null === $comment || $comment->getWorkspace() !== $actor->getWorkspace()) {
+            return;
+        }
+        if ($comment->getBy() !== $actor->getId()) {
+            throw SyncRejected::forbidden(\sprintf('Only its author may delete the Comment "%s".', $id));
+        }
+        $this->em->remove($comment);
+    }
+
+    /**
+     * A Comment keeps its Task, author and time. Its author may change the text; everyone,
+     * the author included, may only add or remove their own Reactions.
+     *
+     * @param array{task: string, by: string, at: int, text: string, re: array<string, list<string>>} $record
+     */
+    private function authorizeChange(Member $actor, Comment $comment, array $record): void
+    {
+        $stored = $comment->toRecord();
+        $mine = $comment->getBy() === $actor->getId();
+        $refusal = $mine
+            ? \sprintf('You may only add or remove your own Reactions on the Comment "%s".', $comment->getId())
+            : \sprintf('On the Comment "%s" by someone else you may only add or remove your own Reactions.', $comment->getId());
+        foreach (['task', 'by', 'at'] as $field) {
+            if ($stored[$field] !== $record[$field]) {
+                throw SyncRejected::forbidden($mine ? \sprintf('A Comment keeps its Task, author and time; "%s" cannot change.', $field) : $refusal);
+            }
+        }
+        if ((!$mine && $stored['text'] !== $record['text']) || !self::onlyOwnReactionsChanged((array) $stored['re'], $record['re'], $actor->getId())) {
+            throw SyncRejected::forbidden($refusal);
+        }
+    }
+
+    /**
+     * Whether `$after` differs from `$before` only by the Member's own id under some emoji.
+     * Order is ignored, and an emoji with no ids is the same as a missing one.
+     *
+     * @param array<string, list<string>> $before
+     * @param array<string, list<string>> $after
+     */
+    private static function onlyOwnReactionsChanged(array $before, array $after, string $memberId): bool
+    {
+        foreach (array_keys($before + $after) as $emoji) {
+            $old = $before[$emoji] ?? [];
+            $new = $after[$emoji] ?? [];
+            $changed = [...array_diff($old, $new), ...array_diff($new, $old)];
+            if ([] !== array_diff($changed, [$memberId])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** Whoever sees a Task may comment on it and react, Guests included: `sees`, not `mayChange`. */
+    private function assertSees(Member $actor, Task $task): void
+    {
+        if (!$this->access->sees($actor, $task->getProject())) {
+            throw SyncRejected::forbidden(\sprintf('You may not comment on the Task "%s".', $task->getId()));
+        }
+    }
+}

@@ -89,6 +89,36 @@ final class GuestsTest extends ApiTestCase
         self::assertFalse($this->record('tasks', 't28')['fav']);
     }
 
+    public function testAGuestCommentsAndReactsInTheirProject(): void
+    {
+        $c8 = array_column($this->getJson('/api/bootstrap')['data']['comments'], null, 'id')['c8'];
+
+        $this->sync([
+            ['op' => 'put', 'type' => 'comments', 'id' => 'cx7k2m9', 'data' => ['id' => 'cx7k2m9', 'task' => 't34', 'by' => 'mg1', 'at' => 1792238400000, 'text' => 'Channel split attached.', 're' => []]],
+            ['op' => 'put', 'type' => 'comments', 'id' => 'c8', 'data' => [...$c8, 're' => ['👀' => ['mg1']]]],
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+        $comments = array_column($this->getJson('/api/bootstrap')['data']['comments'], null, 'id');
+        self::assertSame(['mg1', 'Channel split attached.'], [$comments['cx7k2m9']['by'], $comments['cx7k2m9']['text']]);
+        self::assertSame(['👀' => ['mg1']], $comments['c8']['re']);
+    }
+
+    public function testAGuestCannotCommentOutsideTheirProjects(): void
+    {
+        $body = $this->sync([['op' => 'put', 'type' => 'comments', 'id' => 'cx7k2m9', 'data' => ['id' => 'cx7k2m9', 'task' => 't3', 'by' => 'mg1', 'at' => 1792238400000, 'text' => 'Hi', 're' => []]]]);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(['error' => 'forbidden', 'op' => 0, 'message' => 'You may not comment on the Task "t3".'], $body);
+    }
+
+    public function testAGuestSeesOnlyTheCommentsAndActivityOfTheirProjects(): void
+    {
+        $data = $this->getJson('/api/bootstrap')['data'];
+
+        self::assertSame(['c8'], array_column($data['comments'], 'id'));
+    }
+
     /** @param list<array<string, mixed>> $ops */
     private function sync(array $ops): array
     {

@@ -3,6 +3,7 @@
 namespace App\Sync\Handler;
 
 use App\Access\ProjectAccess;
+use App\Entity\Comment;
 use App\Entity\Member;
 use App\Entity\Project;
 use App\Entity\Task;
@@ -88,8 +89,20 @@ final readonly class TaskHandler implements CollectionHandler
         $task = $this->em->find(Task::class, $id);
         if (null !== $task && $task->getWorkspace() === $actor->getWorkspace()) {
             $this->authorize($actor, $task->getProject());
-            $this->em->remove($task);
+            $this->remove($task);
         }
+    }
+
+    /**
+     * Removes the Task and its Comments. Through the entity manager, not only by the database's
+     * cascade, so later ops of the same batch see them gone. Activity about the Task stays.
+     */
+    public function remove(Task $task): void
+    {
+        foreach ($this->em->getRepository(Comment::class)->findBy(['task' => $task]) as $comment) {
+            $this->em->remove($comment);
+        }
+        $this->em->remove($task);
     }
 
     private function authorize(Member $actor, Project $project): void

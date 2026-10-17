@@ -138,6 +138,27 @@ final readonly class Fields
         return $value;
     }
 
+    /**
+     * An object whose values are lists of strings, such as a Comment's Reactions
+     * (emoji => Member ids). `{}` arrives as an empty array.
+     *
+     * @return array<string, list<string>>
+     */
+    public function stringListMap(string $field): array
+    {
+        $value = $this->required($field);
+        if (!\is_array($value) || ([] !== $value && array_is_list($value))) {
+            throw $this->wrong($field, 'an object of lists of strings');
+        }
+        foreach ($value as $list) {
+            if (!\is_array($list) || !array_is_list($list) || [] !== array_filter($list, static fn (mixed $item): bool => !\is_string($item))) {
+                throw $this->wrong($field, 'an object of lists of strings');
+            }
+        }
+
+        return $value;
+    }
+
     /** @return list<mixed> */
     private function list(string $field): array
     {

@@ -3,6 +3,7 @@
 namespace App\Snapshot;
 
 use App\Access\ProjectAccess;
+use App\Entity\Comment;
 use App\Entity\Member;
 use App\Entity\Project;
 use App\Entity\Task;
@@ -35,7 +36,8 @@ final readonly class Snapshot
         $members = $this->em->getRepository(Member::class)->findBy($byWorkspace, ['id' => 'ASC']);
         $projects = $this->access->visibleProjects($member);
         $visible = array_map(static fn (Project $p): string => $p->getId(), $projects);
-        $tasks = self::withFavorites($member, 'tasks', array_map(static fn (Task $t): array => $t->toRecord(), $this->em->getRepository(Task::class)->findBy([...$byWorkspace, 'project' => $visible])));
+        $visibleTasks = $this->em->getRepository(Task::class)->findBy([...$byWorkspace, 'project' => $visible]);
+        $tasks = self::withFavorites($member, 'tasks', array_map(static fn (Task $t): array => $t->toRecord(), $visibleTasks));
         $seqs = self::keySequences($tasks);
 
         return [
@@ -46,7 +48,7 @@ final readonly class Snapshot
                 'projects' => self::inCreationOrder(self::withFavorites($member, 'projects', array_map(static fn (Project $p): array => [...$p->toRecord(), 'seq' => $seqs[$p->getId()] ?? TaskKeys::FIRST_SEQ], $projects))),
                 'tasks' => self::inCreationOrder($tasks),
                 'projOrder' => array_values(array_intersect($ws->getProjOrder(), $visible)),
-                'comments' => [],
+                'comments' => $this->comments($visibleTasks),
                 'activity' => [],
                 'notifs' => [],
                 'files' => [],
@@ -60,6 +62,20 @@ final readonly class Snapshot
             'prefs' => new \stdClass(),
             'views' => new \stdClass(),
         ];
+    }
+
+    /**
+     * The Comments on these Tasks, oldest first, as the frontend appends new ones.
+     *
+     * @param list<Task> $tasks
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function comments(array $tasks): array
+    {
+        $comments = $this->em->getRepository(Comment::class)->findBy(['task' => $tasks], ['at' => 'ASC', 'id' => 'ASC']);
+
+        return array_map(static fn (Comment $c): array => $c->toRecord(), $comments);
     }
 
     /**

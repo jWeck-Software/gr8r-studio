@@ -73,6 +73,25 @@ final class WorkspaceIsolationTest extends ApiTestCase
         self::assertSame('The Task\'s assignee "mac1" is not a Member of this Workspace.', $body['message']);
     }
 
+    public function testCommentsStayInTheirWorkspace(): void
+    {
+        $this->signIn('ada@acme.test', 'acme-password');
+        $this->postJson('/api/sync', ['ops' => [['op' => 'put', 'type' => 'comments', 'id' => 'cac1', 'data' => ['id' => 'cac1', 'task' => 'tac1', 'by' => 'mac1', 'at' => 1792238400000, 'text' => 'Beep beep', 're' => []]]]]);
+        self::assertResponseStatusCodeSame(200);
+        $this->client->request('POST', '/api/logout');
+        $this->signIn();
+        $comment = ['id' => 'cac1', 'task' => 't4', 'by' => 'm1', 'at' => 1792238400000, 'text' => 'Mine', 're' => []];
+
+        $reused = $this->postJson('/api/sync', ['ops' => [['op' => 'put', 'type' => 'comments', 'id' => 'cac1', 'data' => $comment]]]);
+        $onTheirTask = $this->postJson('/api/sync', ['ops' => [['op' => 'put', 'type' => 'comments', 'id' => 'cx7k2m9', 'data' => [...$comment, 'id' => 'cx7k2m9', 'task' => 'tac1']]]]);
+        $deleted = $this->postJson('/api/sync', ['ops' => [['op' => 'delete', 'type' => 'comments', 'id' => 'cac1']]]);
+
+        self::assertSame(['error' => 'invalid', 'op' => 0, 'message' => 'The id "cac1" is already used.'], $reused);
+        self::assertSame('The Comment\'s Task "tac1" does not exist.', $onTheirTask['message']);
+        self::assertSame(['ok' => true], $deleted);
+        self::assertNotContains('cac1', array_column($this->getJson('/api/bootstrap')['data']['comments'], 'id'));
+    }
+
     /**
      * @param array<string, mixed> $changes
      *

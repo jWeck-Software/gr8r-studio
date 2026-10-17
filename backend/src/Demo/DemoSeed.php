@@ -2,6 +2,7 @@
 
 namespace App\Demo;
 
+use App\Entity\Comment;
 use App\Entity\Member;
 use App\Entity\Project;
 use App\Entity\Task;
@@ -15,7 +16,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  * The demo Workspace "Gr8r Studio", ported from the frontend's src/data/seed.js with
  * dates relative to today. Every active Member gets a User with the demo password.
  *
- * Not yet seeded (their tickets add them): Teams, Comments, Activity, Notifications,
+ * Not yet seeded (their tickets add them): Teams, Activity, Notifications,
  * Files, Events and Saved views.
  */
 final class DemoSeed
@@ -42,7 +43,8 @@ final class DemoSeed
             $this->em->persist($ws);
             $members = $this->members($ws);
             $projects = $this->projects($ws, $members['m1']);
-            $this->tasks($ws, $projects, $members);
+            $tasks = $this->tasks($ws, $projects, $members);
+            $this->comments($ws, $tasks);
         });
         $this->em->clear();
     }
@@ -176,8 +178,10 @@ final class DemoSeed
     /**
      * @param array<string, Project> $projects
      * @param array<string, Member>  $members
+     *
+     * @return array<string, Task>
      */
-    private function tasks(Workspace $ws, array $projects, array $members): void
+    private function tasks(Workspace $ws, array $projects, array $members): array
     {
         $tasks = [];
         $t = function (string $p, string $title, string $status, string $a, string $prio, ?int $due, array $labels = [], array $x = []) use (&$tasks, $projects): void {
@@ -322,11 +326,36 @@ final class DemoSeed
         unset($task);
         $tasks[2]['updated'] = $this->minsAgo(38);
 
+        $entities = [];
         foreach ($tasks as $record) {
             $task = new Task($record['id'], $ws);
             $task->update($record, $projects[$record['project']], $members[$record['assignee']]);
             $this->em->persist($task);
             $members['m1']->star('tasks', $record['id'], $record['fav']);
+            $entities[$record['id']] = $task;
+        }
+
+        return $entities;
+    }
+
+    /** @param array<string, Task> $tasks */
+    private function comments(Workspace $ws, array $tasks): void
+    {
+        $rows = [
+            ['c1', 't3', 'm4', 260, 'Tablet layout feels crowded around the logo strip. Could we drop to four logos under 1024px?', ['👍' => ['m2', 'm3']]],
+            ['c2', 't3', 'm2', 210, 'Good call. Updated in v3 — @Tanjim Islam can you review before Thursday?', []],
+            ['c3', 't3', 'm3', 95, 'Hero spacing maps cleanly to our 8pt scale. No blockers from engineering.', ['🎉' => ['m2']]],
+            ['c4', 't4', 'm3', 400, "Mega-menu content still pending from marketing. I'll stub it for now.", []],
+            ['c5', 't4', 'm5', 120, '@John Carter content is in the shared doc now — six columns max.', ['👍' => ['m3']]],
+            ['c6', 't9', 'm1', 55, 'This slipped past yesterday — @Emma Wilson anything blocking the permission prompts?', []],
+            ['c7', 't24', 'm7', 700, 'Face ID fallback to passcode works on iOS 17; testing Android next.', []],
+            ['c8', 't34', 'm2', 1500, 'Finance needs the channel split before approving.', []],
+            ['c9', 't35', 'm7', 200, 'Support training moved to Monday. @Tanjim Islam please confirm the status page copy.', []],
+        ];
+        foreach ($rows as [$id, $task, $by, $minsAgo, $text, $re]) {
+            $comment = new Comment($id, $ws);
+            $comment->update(['by' => $by, 'at' => $this->minsAgo($minsAgo), 'text' => $text, 're' => $re], $tasks[$task]);
+            $this->em->persist($comment);
         }
     }
 

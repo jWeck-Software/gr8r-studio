@@ -155,7 +155,7 @@ final class BootstrapTest extends ApiTestCase
 
         $data = $this->getJson('/api/bootstrap')['data'];
 
-        foreach (['comments', 'activity', 'notifs', 'files', 'events', 'savedViews', 'recentSearches'] as $collection) {
+        foreach (['activity', 'notifs', 'files', 'events', 'savedViews', 'recentSearches'] as $collection) {
             self::assertSame([], $data[$collection], $collection);
         }
     }
