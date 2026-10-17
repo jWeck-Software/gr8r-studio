@@ -76,7 +76,8 @@ final readonly class TaskHandler implements CollectionHandler
         // undo brings back a deleted one.
         $old = $task?->toRecord() ?? $deleted?->getRecord();
         $reply = [];
-        if (null === $old || $old['key'] !== $record['key'] || $old['project'] !== $record['project']) {
+        // A Task undo brings back is new to the table: its key may have been taken meanwhile.
+        if (null === $task || $old['key'] !== $record['key'] || $task->getProject() !== $project) {
             // Batches that number Tasks in this Project take turns until their transaction ends, so
             // the later one sees the earlier one's keys and renumbers instead of hitting the unique
             // index (ADR 0003).

@@ -160,6 +160,21 @@ final class SyncTasksTest extends ApiTestCase
         self::assertSame(['WEB-160', 'WEB-201'], [$this->task('xk3j9q2')['key'], $this->task('xa1')['key']]);
     }
 
+    /** Undo puts a deleted Task back under its key; if someone took the key meanwhile, it is renumbered like a new Task. */
+    public function testATaskBroughtBackWhoseKeyWasTakenMeanwhileGetsTheProjectsNextKey(): void
+    {
+        $t4 = $this->task('t4');
+        $this->sync([['op' => 'delete', 'type' => 'tasks', 'id' => 't4']]);
+        $this->sync([['op' => 'put', 'type' => 'tasks', 'id' => 'xk3j9q2', 'data' => self::newTask(['key' => $t4['key']])]]);
+        self::assertResponseStatusCodeSame(200);
+
+        $body = $this->sync([['op' => 'put', 'type' => 'tasks', 'id' => 't4', 'data' => $t4]]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame(['ok' => true, 'keys' => ['t4' => 'WEB-201']], $body);
+        self::assertSame([$t4['key'], 'WEB-201'], [$this->task('xk3j9q2')['key'], $this->task('t4')['key']]);
+    }
+
     public function testAnExistingTaskCannotTakeAKeyInUse(): void
     {
         $body = $this->sync([['op' => 'put', 'type' => 'tasks', 'id' => 't4', 'data' => array_merge($this->task('t4'), ['key' => 'WEB-103'])]]);

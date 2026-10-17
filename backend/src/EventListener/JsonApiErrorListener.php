@@ -12,8 +12,8 @@ use Symfony\Component\Serializer\Exception\NotEncodableValueException;
 
 /**
  * Errors under /api answer as {"error": "<code>", "message": "…"} instead of an HTML page. A request
- * body that #[MapRequestPayload] can't use, because it isn't JSON or breaks the payload's
- * constraints, is 422 `invalid` with the constraint's message.
+ * body that #[MapRequestPayload] can't use is 422 `invalid`: one that breaks the payload's
+ * constraints with their message, one that isn't JSON with Symfony's.
  * Sign-in problems are answered earlier by the firewall. Unexpected errors become a 500
  * `server_error` whose message names the cause only in the dev environment.
  *
