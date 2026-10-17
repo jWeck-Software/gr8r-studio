@@ -50,7 +50,12 @@ have a dialog open); an expired session keeps your unsynced changes and sends th
 in again as the same Member. Inviting someone emails them a link (in dev, Mailpit catches it: inbox
 on http://127.0.0.1:8025) that opens the app at `#join/<token>`, where they choose a name and a
 password and are signed in as the new Member; "Resend invite" in a Member's menu sends a fresh link.
-Sign-up, social sign-in, onboarding and the demo reset are not available in this mode yet.
+Signing up sends a verification link the same way (`#verify/<token>`); opening it signs the new User
+in and continues into onboarding, whose last step creates their own Workspace, with them as its Owner,
+and syncs the first Project, its template Tasks and any invites. Until then signing in shows the verify
+screen, which sends a new link on request; a User signed in without a Workspace (one who exited setup,
+or a removed Member) is taken to onboarding, and exiting it signs out. Social sign-in, replaying
+onboarding, the workspace switcher and the demo reset are not available in this mode yet.
 
 ## Project structure
 

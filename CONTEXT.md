@@ -7,8 +7,12 @@ A project management workspace where a team plans projects, tracks tasks and tal
 ### People and access
 
 **User**:
-A person who can sign in, identified by an email address and a password.
+A person who can sign in, identified by an email address and a password. Whoever signs up starts their own Workspace, as its Owner, once they are verified.
 _Avoid_: account, login
+
+**Verified**:
+A User is verified once they proved the email address is theirs, by opening the link sent to it when they signed up or the link of an Invite. An unverified User cannot sign in; signing up again before verifying starts over with a new link.
+_Avoid_: confirmed, activated
 
 **Workspace**:
 The shared space a team works in; it owns every project, task, team and file.
