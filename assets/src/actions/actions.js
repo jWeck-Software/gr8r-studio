@@ -37,6 +37,7 @@ import { TEMPLATES, closeModal, openModal } from '../overlays/modals.js';
 import { closePop, openPop, tgt } from '../overlays/popovers.js';
 import { strengthMeter } from '../pages/settings.js';
 import { BACKEND, api } from '../core/api.js';
+import { MODE } from '../core/mode.js';
 import { attachmentOf, removeFile, undoTo } from '../core/files.js';
 import { slug } from '../core/slug.js';
 import { weakPassword } from '../core/password.js';
@@ -1683,7 +1684,7 @@ A.removeMember = el => {
       ) {
         if (S.ui.route === 'member') go('members');
         // On the server the removed Member's sign-in is cut loose from the Workspace: undo cannot bring them back.
-        toast(`Removed ${m.name}`, BACKEND ? {} : { action: 'Undo', onAction: () => restore(snap) });
+        toast(`Removed ${m.name}`, MODE.can.undoDeletes ? { action: 'Undo', onAction: () => restore(snap) } : {});
       }
     },
   });
@@ -1753,14 +1754,14 @@ A.delFile = el => {
   S.ui.pop = null;
   confirmDlg({
     title: 'Delete file?',
-    body: `<b>${esc(f.name)}</b> will be removed from the project${f.task ? ' and its task' : ''}.${BACKEND ? " It's deleted for everyone and can't be undone." : ''}`,
+    body: `<b>${esc(f.name)}</b> will be removed from the project${f.task ? ' and its task' : ''}.${MODE.can.undoDeletes ? '' : " It's deleted for everyone and can't be undone."}`,
     ok: 'Delete file',
     danger: true,
     run: () => {
       const snap = snapshot();
       if (mutate(() => removeFile(D(), f.task, f)))
         // In backend mode its content is gone from the server: undo couldn't bring it back
-        toast(`Deleted ${f.name}`, BACKEND ? {} : { action: 'Undo', onAction: () => restore(snap) });
+        toast(`Deleted ${f.name}`, MODE.can.undoDeletes ? { action: 'Undo', onAction: () => restore(snap) } : {});
     },
   });
 };

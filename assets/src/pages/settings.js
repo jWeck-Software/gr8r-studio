@@ -8,7 +8,7 @@ import { av, pIcon } from '../ui/helpers.js';
 import { permsTable, teamsGrid } from './members.js';
 import { page404 } from './errors.js';
 import { SHORTCUTS } from '../overlays/modals.js';
-import { BACKEND } from '../core/api.js';
+import { MODE } from '../core/mode.js';
 
 export const SET_NAV = [
   [
@@ -333,7 +333,7 @@ export function settingsBody(sec, title) {
       const pw = S.ui.pwNew || '';
       return (
         H("Use a long password you don't use anywhere else.") +
-        `${S.ui.pwDone ? `<div class="alert ok" style="margin-bottom:14px">${ic('circle-check', 15)}<span>Password updated. ${BACKEND ? 'Your other sessions were signed out.' : 'Other sessions stay signed in.'}</span></div>` : ''}<form data-submit="savePassword" class="col" style="gap:14px;max-width:400px">
+        `${S.ui.pwDone ? `<div class="alert ok" style="margin-bottom:14px">${ic('circle-check', 15)}<span>Password updated. ${MODE.text.passwordChanged}</span></div>` : ''}<form data-submit="savePassword" class="col" style="gap:14px;max-width:400px">
       <div class="field"><label class="label" for="pw-cur">Current password</label><input type="password" class="input ${e.pwCur ? 'is-error' : ''}" id="pw-cur" autocomplete="current-password">${e.pwCur ? `<span class="err">${ic('circle-alert', 12)}${esc(e.pwCur)}</span>` : ''}</div>
       <div class="field"><label class="label" for="pw-new">New password</label><input type="password" class="input ${e.pwNew ? 'is-error' : ''}" id="pw-new" data-in="pwStrength" value="${esc(pw)}" autocomplete="new-password">${strengthMeter(pw)}${e.pwNew ? `<span class="err">${ic('circle-alert', 12)}${esc(e.pwNew)}</span>` : '<span class="hint">At least 10 characters with a number or symbol.</span>'}</div>
       <div class="field"><label class="label" for="pw-conf">Confirm new password</label><input type="password" class="input ${e.pwConf ? 'is-error' : ''}" id="pw-conf" autocomplete="new-password">${e.pwConf ? `<span class="err">${ic('circle-alert', 12)}${e.pwConf}</span>` : ''}</div>

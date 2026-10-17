@@ -2,12 +2,10 @@
 import { TODAY, diffD, iso, parse, uid } from './utils.js';
 import { PCOLORS, TEAMS_SEED } from './constants.js';
 import { seed } from '../data/seed.js';
-import { BACKEND } from './api.js';
+import { MODE } from './mode.js';
 
-/* In backend mode the server owns S.data and keeps the Member's prefs and views: this browser keeps
-   a copy of those and the sidebar state, under its own key so they never mix with the demo's saved
-   workspace, together with the Member they belong to. */
-export const STORE_KEY = BACKEND ? 'gr8r.v2.backend' : 'gr8r.v2';
+/* What this browser keeps, and under which key, depends on the mode (core/mode.js). */
+export const STORE_KEY = MODE.storage.key;
 export const DEFAULT_PREFS = {
   theme: 'system',
   accent: 'indigo',
@@ -26,7 +24,7 @@ export function load() {
     const raw = localStorage.getItem(STORE_KEY);
     if (raw) {
       const j = JSON.parse(raw);
-      if (j && (BACKEND || (j.data && j.data.tasks))) return j;
+      if (j && (!MODE.storage.keepsData || (j.data && j.data.tasks))) return j;
     }
   } catch {
     /* storage blocked or corrupt: start from seed data */
@@ -35,7 +33,7 @@ export function load() {
 }
 export const saved = load();
 export const S = {
-  data: (!BACKEND && saved?.data) || seed(),
+  data: (MODE.storage.keepsData && saved?.data) || seed(),
   prefs: Object.assign({}, DEFAULT_PREFS, saved?.prefs || {}),
   views: saved?.views || {},
   ui: {
@@ -88,7 +86,7 @@ export const S = {
 };
 /* Backend mode: the Member whose prefs and views S holds, the one they were last synced for; null when not known
    (nobody signed in yet in this browser, or saved before this was kept). */
-let prefsOwner = (BACKEND && saved?.member) || null;
+let prefsOwner = (MODE.storage.keepsOwner && saved?.member) || null;
 export const prefsOwnerIs = () => prefsOwner;
 export const ownPrefs = member => (prefsOwner = member);
 export let _saveT;
@@ -116,7 +114,13 @@ export function save() {
     try {
       localStorage.setItem(
         STORE_KEY,
-        JSON.stringify({ data: BACKEND ? undefined : S.data, member: prefsOwner || undefined, prefs: S.prefs, views: S.views, collapsed: S.ui.collapsed }),
+        JSON.stringify({
+          data: MODE.storage.keepsData ? S.data : undefined,
+          member: prefsOwner || undefined,
+          prefs: S.prefs,
+          views: S.views,
+          collapsed: S.ui.collapsed,
+        }),
       );
     } catch {
       /* storage full or blocked: keep working in memory */
