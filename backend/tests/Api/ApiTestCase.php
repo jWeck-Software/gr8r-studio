@@ -9,7 +9,8 @@ use Symfony\Component\Clock\Test\ClockSensitiveTrait;
 
 /**
  * Talks to the backend over HTTP only. Every test starts from the demo Workspace,
- * seeded "today" on 2026-10-17 at noon, inside a transaction that is rolled back afterwards.
+ * seeded "today" on 2026-10-17 at noon, inside a transaction that is rolled back afterwards, and
+ * with no rate limit used up.
  */
 abstract class ApiTestCase extends WebTestCase
 {
@@ -24,6 +25,8 @@ abstract class ApiTestCase extends WebTestCase
     {
         self::mockTime(new \DateTimeImmutable('2026-10-17 12:00:00', new \DateTimeZone('UTC')));
         $this->client = static::createClient();
+        // The rate limits (App\Security\RateLimits) count in a cache that outlives the test's transaction.
+        static::getContainer()->get('cache.rate_limiter')->clear();
         static::getContainer()->get(DemoSeed::class)->load();
     }
 
