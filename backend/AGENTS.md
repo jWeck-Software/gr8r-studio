@@ -80,10 +80,15 @@ Where this backend knowingly departs from the conventions above, and why:
 - **The password policy is `App\Security\PasswordPolicy`, not a Validator constraint.** Accepting an
   Invite applies it only when a new User is created; when the address has a User already, that
   User's current password is checked instead, which a constraint on the request DTO can't tell apart.
-- **Routes that take a Member's id name it `{invited}` (or another name), never `{id}`.** Doctrine's
-  entity value resolver maps an `{id}` placeholder onto a `Member $member` argument before
-  `CurrentMemberResolver` runs, so the target would become the signed-in actor
-  (`POST /api/members/{invited}/invite`; the README writes it as `{id}` for callers).
+- **Routes never name a placeholder `{id}`: `{invited}`, `{file}` and so on.** Doctrine's entity
+  value resolver maps an `{id}` placeholder onto a `Member $member` argument before
+  `CurrentMemberResolver` runs, so the signed-in actor would become whatever the id names
+  (`POST /api/members/{invited}/invite`, `GET /api/files/{file}/content`; the README writes `{id}`
+  for callers).
+- **The 25 MB limit of an upload is checked by `App\File\Files`, not an `Assert\File` constraint.**
+  `#[MapRequestPayload]` binds the multipart body (`App\File\NewFile`), but a file over PHP's
+  `upload_max_filesize` arrives as an upload error rather than a size, and both have to be refused
+  the same way, next to the other rules of storing a File.
 - **Numbering Tasks locks the Project row (`FOR UPDATE`), not `symfony/lock`.** The lock has to last
   exactly as long as the sync transaction that stores the keys, and the database is what every
   server shares.

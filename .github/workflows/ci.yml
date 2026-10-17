@@ -47,6 +47,8 @@ jobs:
         with:
           php-version: '8.4'
           extensions: pdo_pgsql, intl
+          # above the 25 MB a File may be, so the test of a File of exactly 25 MB runs
+          ini-values: upload_max_filesize=30M, post_max_size=32M
           coverage: none
           tools: composer:v2
       - run: composer install --no-interaction --no-progress

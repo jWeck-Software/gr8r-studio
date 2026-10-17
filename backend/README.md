@@ -24,10 +24,14 @@ php bin/console doctrine:migrations:migrate -n
 # Demo Workspace "Gr8r Studio", dated relative to today. Re-running replaces it with a fresh copy.
 php bin/console app:demo:seed
 
-# API on http://127.0.0.1:8000 (either one)
-symfony serve --no-tls --port=8000
-php -S 127.0.0.1:8000 -t public
+# API on http://127.0.0.1:8000 (either one). PHP keeps uploads up to upload_max_filesize (2 MB by
+# default) and drops request bodies over post_max_size (8 MB): raise both above the 25 MB a File may be.
+symfony serve --no-tls --port=8000   # with upload_max_filesize=30M and post_max_size=32M in php.ini
+php -d upload_max_filesize=30M -d post_max_size=32M -S 127.0.0.1:8000 -t public
 ```
+
+Uploaded Files are kept in `var/storage/<Workspace id>/<File id>` (`FILE_STORAGE_DIR` in `.env`;
+git-ignored, never under `public/`); the tests use `var/test-storage`, emptied at the start of every run.
 
 To use it from the app, run the frontend with `VITE_API_URL=/api npm run dev` in the repository
 root (see "Backend mode" in the root README).
@@ -50,6 +54,8 @@ that is rolled back (dama/doctrine-test-bundle).
 php bin/console doctrine:database:create --env=test --if-not-exists
 php bin/console doctrine:migrations:migrate --env=test -n
 php bin/phpunit
+# The test of a File of exactly 25 MB runs only with PHP's upload limits raised; otherwise it is skipped:
+php -d upload_max_filesize=30M -d post_max_size=32M bin/phpunit
 ```
 
 ## Endpoints
@@ -65,6 +71,9 @@ php bin/phpunit
 | `GET /api/invites/{token}`         | no sign-in needed: `{email, name, workspace, account}` of an open Invite; `account` says the address has a User already; `404 not_found`, `410 expired`                                                                                                                                                                   |
 | `POST /api/invites/{token}/accept` | no sign-in needed: `{name, password}` → same body as login + session cookie; `404 not_found` (unknown, used or replaced link), `410 expired`, `422 invalid` (weak password), `401 invalid_credentials` (the address has a User and this is not its password), `409 conflict` (that User is a Member of another Workspace) |
 | `POST /api/members/{id}/invite`    | Owners and Admins send an invited Member's Invite again: `204`; `403`, `404`, `422` for a Member who joined                                                                                                                                                                                                               |
+| `POST /api/files`                  | multipart `file`, `id`, `project`, optional `task` → `201` with the File record (`type`, `size`, `by` and `at` are the server's); `422` for more than 25 MB, an id in use or a Task of another Project; `403` for Guests and Private projects one is not in                                                             |
+| `GET /api/files/{id}/content`      | the File's content with its name (`Content-Disposition: attachment`), its type by extension, `nosniff` and a sandboxing CSP; `404` for a File one doesn't see, as for one that doesn't exist                                                                                                                         |
+| `POST /api/files/{id}/copy`        | `{id}` → `201` with a copy of the File, content included, named like the frontend's Duplicate (`notes copy.txt`); `404`, `403`, `422` as for an upload                                                                                                                                                                  |
 
 Errors answer as `{"error": "<code>", "message": "…"}`; without a session every endpoint except
 health, login and the two `/api/invites/{token}` ones answers `401 {"error":"unauthenticated"}`.
@@ -126,4 +135,22 @@ health, login and the two `/api/invites/{token}` ones answers `401 {"error":"una
 - `src/Sync/Handler/TeamHandler.php`, `WorkspaceSettingsHandler.php`: Teams, and the `ws` singleton
   (name, URL slug like `gr8r-studio`, colour `#RRGGBB`). Deleting a Team leaves its Members and
   Projects without one (`team: ""`).
-- `src/Demo/DemoSeed.php`: the demo Workspace, ported from `src/data/seed.js`.
+- `src/File/Files.php`: Files and their content, the one place that knows where blobs live.
+  `store()` (upload), `download()`, `copy()`, `remove()` / `removeAllOf()` (a Task's or Project's)
+  and `followTask()`. A File's record and blob come and go together: an upload or copy whose record
+  can't be stored leaves no blob, and a removed File's blob goes only once the sync batch that
+  removed it has committed (`Transaction::afterCommit()`). Content is served as an attachment with
+  the type its name says, `nosniff` and `Content-Security-Policy: sandbox`, so an uploaded HTML or
+  SVG file runs no script on the app's origin.
+- `src/Sync/Handler/FileHandler.php`: the sync renames Files (only `name` is the client's; `type`
+  follows it) and deletes them, for Members who may change the Project (not Guests). A put for a
+  File the server doesn't have changes nothing: undo of a Task or Project delete puts its Files
+  back, whose content is gone, and refusing them would refuse bringing the Task back. Files are
+  created only by an upload or a copy.
+- Attachments: a Task's `attachments` are the Files attached to it, rendered by the snapshot
+  (oldest first, the File's id as the Attachment's id), not a column of the Task as the spec first
+  planned; what a Task put says about them is ignored. Deleting a Task or Project deletes its Files,
+  and a Task moved to another Project takes its Files along.
+- `src/Demo/DemoSeed.php`: the demo Workspace, ported from `src/data/seed.js`. Its Files get small
+  placeholder content of their type (`PlaceholderContent.php`: a PNG, a one-page PDF, an empty
+  archive, JSON or a note); their sizes are the demo's.
