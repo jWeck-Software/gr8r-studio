@@ -2,6 +2,7 @@
 
 namespace App\Invite;
 
+use App\Access\WorkspaceAccess;
 use App\Entity\Invite;
 use App\Entity\Member;
 use App\Entity\User;
@@ -33,6 +34,7 @@ final readonly class Invites
         private LoggerInterface $logger,
         private UserPasswordHasherInterface $hasher,
         private MemberRepository $members,
+        private WorkspaceAccess $access,
         #[Autowire('%env(APP_FRONTEND_URL)%')]
         private string $frontendUrl,
     ) {
@@ -53,6 +55,35 @@ final readonly class Invites
                 $this->logger->error('The Invite email to {member} could not be sent: {reason}', ['member' => $invited->getId(), 'reason' => $e->getMessage()]);
             }
         });
+    }
+
+    /**
+     * Sends the Invite of an invited Member of the actor's Workspace again, with a fresh link;
+     * the earlier link stops working. The email goes out once the new link is stored.
+     *
+     * @throws InviteRefused when there is no such Member, they joined already, or the actor may
+     *                       not invite them (WorkspaceAccess::whyNotInvite())
+     */
+    public function resend(Member $actor, string $memberId): void
+    {
+        $email = $this->transaction->run(function () use ($actor, $memberId): Email {
+            $member = $this->em->find(Member::class, $memberId);
+            if (null === $member || $member->getWorkspace() !== $actor->getWorkspace()) {
+                throw InviteRefused::noSuchMember();
+            }
+            $refusal = $this->access->whyNotInvite($actor, $member->getRole());
+            if (null !== $refusal) {
+                throw InviteRefused::forbidden($refusal);
+            }
+            if (!$member->isInvited()) {
+                throw InviteRefused::joinedAlready($member->getName());
+            }
+            $email = $this->issue($actor, $member);
+            $this->em->flush();
+
+            return $email;
+        });
+        $this->mailer->send($email);
     }
 
     /**

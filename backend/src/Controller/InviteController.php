@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Entity\Member;
 use App\Invite\AcceptInvite;
 use App\Invite\InviteRefused;
 use App\Invite\Invites;
@@ -15,6 +16,22 @@ use Symfony\Component\Routing\Attribute\Route;
 
 final class InviteController extends AbstractController
 {
+    /**
+     * Owners and Admins send an invited Member a new link; the old one stops working. The route
+     * says `{invited}`, not `{id}`: Doctrine would resolve `Member $member` from an `{id}`.
+     */
+    #[Route('/api/members/{invited}/invite', name: 'api_member_invite', methods: ['POST'])]
+    public function resend(string $invited, Member $member, Invites $invites): Response
+    {
+        try {
+            $invites->resend($member, $invited);
+        } catch (InviteRefused $refused) {
+            return new JsonResponse($refused->body(), $refused->status);
+        }
+
+        return new Response(status: 204);
+    }
+
     #[Route('/api/invites/{token}', name: 'api_invite', methods: ['GET'])]
     public function show(string $token, Invites $invites): JsonResponse
     {

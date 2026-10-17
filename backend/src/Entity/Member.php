@@ -74,6 +74,12 @@ class Member
         return $this->email;
     }
 
+    /** Invited and not joined yet: the Member has no User until they accept the Invite. */
+    public function isInvited(): bool
+    {
+        return 'invited' === $this->status;
+    }
+
     public function getUser(): ?User
     {
         return $this->user;

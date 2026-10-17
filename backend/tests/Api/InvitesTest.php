@@ -138,6 +138,76 @@ final class InvitesTest extends ApiTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
+    /** Sending the Invite again emails a new link; the one Ana got first stops working. */
+    public function testSarahSendsAnasInviteAgain(): void
+    {
+        $this->signIn('sarah@gr8rstudio.com');
+        $this->invite();
+        $first = $this->token();
+
+        $this->client->request('POST', '/api/members/mq7x2/invite');
+
+        self::assertResponseStatusCodeSame(204);
+        self::assertEmailCount(1);
+        $second = $this->token();
+        self::assertNotSame($first, $second);
+        $this->client->request('POST', '/api/logout');
+        $this->accept($first, 'Ana Lopez', 'ana-password-1');
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame('mq7x2', $this->accept($second, 'Ana Lopez', 'ana-password-1')['member']);
+    }
+
+    /** Diego was invited before Invites were emailed (the demo seed): sending it again gives him his first link. */
+    public function testSarahSendsDiegosInviteAgain(): void
+    {
+        $this->signIn('sarah@gr8rstudio.com');
+
+        $this->client->request('POST', '/api/members/m8/invite');
+
+        $email = self::getMailerMessage();
+        \assert($email instanceof Email);
+        self::assertSame('diego@freelance.io', $email->getTo()[0]->getAddress());
+        self::assertSame('Sarah Chen invited you to Gr8r Studio', $email->getSubject());
+        $token = $this->token();
+        $this->client->request('POST', '/api/logout');
+        self::assertSame('m8', $this->accept($token, 'Diego Alvarez', 'diego-password-1')['member']);
+    }
+
+    /** @return iterable<string, array{string, string, int, array{error: string, message: string}}> */
+    public static function refusedResends(): iterable
+    {
+        yield 'by John, a Member' => ['john@gr8rstudio.com', 'm8', 403, ['error' => 'forbidden', 'message' => 'Only Owners and Admins invite people.']];
+        yield 'to John, who joined' => ['sarah@gr8rstudio.com', 'm3', 422, ['error' => 'invalid', 'message' => 'John Carter has joined already.']];
+        yield 'to someone unknown' => ['sarah@gr8rstudio.com', 'mzz9', 404, ['error' => 'not_found', 'message' => 'This Workspace has no such Member.']];
+    }
+
+    /** @param array{error: string, message: string} $expected */
+    #[\PHPUnit\Framework\Attributes\DataProvider('refusedResends')]
+    public function testSendingAnInviteAgainIsRefused(string $email, string $id, int $status, array $expected): void
+    {
+        $this->signIn($email);
+
+        $this->client->request('POST', '/api/members/'.$id.'/invite');
+
+        self::assertResponseStatusCodeSame($status);
+        self::assertSame($expected, $this->lastJson());
+        self::assertEmailCount(0);
+    }
+
+    /** Only an Owner invites an Owner, also the second time. */
+    public function testSarahAnAdminDoesNotSendTheInviteOfAnOwnerAgain(): void
+    {
+        $this->signIn();
+        $this->invite('mq7x2', ['role' => 'Owner']);
+        $this->client->request('POST', '/api/logout');
+        $this->signIn('sarah@gr8rstudio.com');
+
+        $this->client->request('POST', '/api/members/mq7x2/invite');
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(['error' => 'forbidden', 'message' => 'Only an Owner changes an Owner\'s Role or makes someone an Owner.'], $this->lastJson());
+    }
+
     /** @return iterable<string, array{string}> */
     public static function weakPasswords(): iterable
     {

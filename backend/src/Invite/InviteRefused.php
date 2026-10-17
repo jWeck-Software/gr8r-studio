@@ -2,7 +2,7 @@
 
 namespace App\Invite;
 
-/** An Invite link that does not (or no longer) lead into the Workspace, with the reason to show. */
+/** What the server refuses about an Invite, such as a link that does not lead into the Workspace (any more), with the reason to show. */
 final class InviteRefused extends \RuntimeException
 {
     private function __construct(
@@ -17,6 +17,24 @@ final class InviteRefused extends \RuntimeException
     public static function unknown(): self
     {
         return new self(404, 'not_found', 'This invite link is not valid any more. It may have been used already or replaced by a newer one.');
+    }
+
+    /** Sending an Invite again to someone the Workspace does not have. */
+    public static function noSuchMember(): self
+    {
+        return new self(404, 'not_found', 'This Workspace has no such Member.');
+    }
+
+    /** The actor may not invite this Member (WorkspaceAccess). */
+    public static function forbidden(string $message): self
+    {
+        return new self(403, 'forbidden', $message);
+    }
+
+    /** Sending an Invite again to a Member who accepted it. */
+    public static function joinedAlready(string $name): self
+    {
+        return new self(422, 'invalid', \sprintf('%s has joined already.', $name));
     }
 
     /** The link is older than a week. */
