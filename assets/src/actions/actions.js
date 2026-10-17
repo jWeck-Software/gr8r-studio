@@ -11,18 +11,25 @@ import {
   acceptInvite,
   allTasks,
   canSee,
+  changePassword,
   commentsOf,
   deleteWorkspace,
+  forgotPassword,
+  leaveSetup,
   logAct,
   me,
   mem,
   proj,
   flushSync,
   save,
+  resendInvite,
+  resendResetLink,
+  resendVerification,
   resetPassword,
   resumeSession,
   signIn,
   signOut,
+  signUp,
   startWorkspace,
   task,
   tasksOf,
@@ -1647,8 +1654,7 @@ A.resendInvite = el => {
   const m = mem(el.dataset.id);
   S.ui.pop = null;
   render();
-  if (!BACKEND) return toast(`Invite resent to ${m.email}`);
-  api.resendInvite(m.id).then(
+  resendInvite(m.id).then(
     () => toast(`Invite resent to ${m.email}`),
     err => toast(err.message, { kind: 'err' }),
   );
@@ -1870,7 +1876,7 @@ A.signOut = () => {
   S.ui.modals = [];
   S.ui.auth = 'login';
   S.ui.errors = {};
-  if (BACKEND) signOut();
+  signOut();
   render();
 };
 A.shortcuts = () => {
@@ -2029,20 +2035,12 @@ A.delWorkspace = () =>
     ok: 'Delete workspace',
     danger: true,
     typeName: D().ws.name,
-    run: () => {
-      // Backend mode: gone for everyone; the Owner, left without a Workspace, can start a new one.
-      if (BACKEND)
-        return deleteWorkspace(D().ws.name).then(
-          () => toast('Workspace deleted', { kind: 'info', ms: 5000 }),
-          err => toast(err.message, { kind: 'err' }),
-        );
-      S.data = seed();
-      S.views = {};
-      save();
-      S.ui.auth = 'login';
-      render();
-      toast('Workspace deleted. Demo data was restored for this prototype.', { kind: 'info', ms: 5000 });
-    },
+    // Backend mode: gone for everyone; the Owner, left without a Workspace, can start a new one. The demo starts over.
+    run: () =>
+      deleteWorkspace(D().ws.name).then(
+        () => toast(MODE.text.workspaceDeleted, { kind: 'info', ms: 5000 }),
+        err => toast(err.message, { kind: 'err' }),
+      ),
   });
 A.avColor = el => {
   me().c = el.dataset.v;
@@ -2096,12 +2094,11 @@ A.savePassword = () => {
     render();
     toast('Password updated');
   };
-  if (!BACKEND) return loadingBtn('pw-save', 800, done);
   loadingBtn('pw-save', 0, () =>
-    api.changePassword(cur, nw).then(done, err => {
-      // A wrong current password is 401, a new one the server finds too weak 422; anything else is a toast.
-      if (err.code === 'invalid_credentials') S.ui.errors = { pwCur: err.message };
-      else if (err.status === 422) S.ui.errors = { pwNew: err.message };
+    changePassword(cur, nw).then(done, err => {
+      // A wrong current password or a new one the server finds too weak shows at its field; anything else is a toast.
+      if (err.field === 'current') S.ui.errors = { pwCur: err.message };
+      else if (err.field === 'new') S.ui.errors = { pwNew: err.message };
       else toast(err.message, { kind: 'err' });
       render();
     }),
@@ -2220,7 +2217,6 @@ A.doLogin = () => {
     if (!e.email) $('#l-pw').value = pw;
     return;
   }
-  if (!BACKEND) return loadingBtn('login-btn', 750, () => enterApp(`Signed in as ${em}`));
   loadingBtn('login-btn', 0, () =>
     signIn(em, pw).then(
       member => (member ? enterApp(`Signed in as ${em}`) : (beginOnboarding(), render())),
@@ -2301,9 +2297,8 @@ A.doSignup = () => {
     startResend();
     render();
   };
-  if (!BACKEND) return loadingBtn('signup-btn', 800, verify);
   loadingBtn('signup-btn', 0, () =>
-    api.signUp(nm, em, pw).then(verify, err => {
+    signUp(nm, em, pw).then(verify, err => {
       S.ui.errors = { signup: err.message };
       render();
       $('#s-email').value = em;
@@ -2331,14 +2326,12 @@ A.resend = el => {
       toast(`Verification email sent to ${S.ui.af.email}`);
     };
     // The server answers alike for every address, so the toast says the same.
-    if (BACKEND) api.resendVerification(S.ui.af.email).then(sent, err => toast(err.message, { kind: 'err' }));
-    else sent();
-  } else if (BACKEND)
-    api.forgotPassword(S.ui.af.email).then(
+    resendVerification(S.ui.af.email).then(sent, err => toast(err.message, { kind: 'err' }));
+  } else
+    resendResetLink(S.ui.af.email).then(
       () => toast(`Reset link sent to ${S.ui.af.email}`),
       err => toast(err.message, { kind: 'err' }),
     );
-  else toast(`Reset link sent to ${S.ui.af.email}`);
 };
 /* Onboarding from its first step: after verifying, or for a User signed in without a Workspace. The caller renders. */
 export function beginOnboarding() {
@@ -2350,8 +2343,7 @@ export function beginOnboarding() {
   S.ui.onbData.urlTouched = false;
 }
 A.verified = () => {
-  if (!BACKEND) return (beginOnboarding(), render());
-  // The link signs in the browser it is opened in: if that was this one, carry on from here.
+  // The link signs in the browser it is opened in: if that was this one, carry on from here (in the demo, always).
   resumeSession().then(
     session => {
       if (session === 'setup') return (beginOnboarding(), render());
@@ -2374,10 +2366,9 @@ A.doForgot = () => {
     S.ui.auth = 'forgot-sent';
     render();
   };
-  if (!BACKEND) return loadingBtn('forgot-btn', 700, sent);
   // The server answers alike for every address (no account, no email), so the screen says the same.
   loadingBtn('forgot-btn', 0, () =>
-    api.forgotPassword(em).then(sent, err => {
+    forgotPassword(em).then(sent, err => {
       S.ui.errors = { forgot: err.message };
       render();
     }),
@@ -2393,26 +2384,17 @@ A.doReset = () => {
     render();
     return;
   }
-  if (!BACKEND)
-    return loadingBtn('reset-btn', 700, () => {
-      S.ui.auth = 'reset-done';
-      S.ui.pwNew = '';
-      render();
-    });
-  // Backend mode: the link from the email (#reset/<token>) sets the password and signs in.
-  if (!S.ui.reset) {
-    S.ui.errors = { reset: 'Open the link in the password reset email to choose a new password.' };
-    render();
-    return;
-  }
+  // Backend mode: the link from the email (#reset/<token>) sets the password and signs in. The demo's reset page has no token.
   loadingBtn('reset-btn', 0, () =>
-    resetPassword(S.ui.reset.token, a).then(
-      member => {
+    resetPassword(S.ui.reset?.token, a).then(
+      session => {
+        S.ui.pwNew = '';
+        // Set, but not signed in (the demo): sign in with the new password.
+        if (session === 'out') return ((S.ui.auth = 'reset-done'), render());
         // The link worked once: a reload must not show it again.
         history.replaceState(null, '', location.pathname + location.search);
         S.ui.reset = null;
-        S.ui.pwNew = '';
-        if (member) return enterApp('Password updated. You are signed in.');
+        if (session === 'in') return enterApp('Password updated. You are signed in.');
         beginOnboarding();
         render();
         toast('Password updated. You are signed in.');
@@ -2497,44 +2479,31 @@ A.onbNext = el => {
   render();
   setTimeout(() => $('.auth input')?.focus(), 20);
 };
-A.onbExit = () => {
-  // Backend mode: the signed-in User has no Workspace to show, so leaving setup signs out.
-  if (BACKEND)
-    return signOut().then(() => {
+/* Backend mode: the signed-in User has no Workspace to show, so leaving setup signs out. The demo goes back into its Workspace. */
+A.onbExit = () =>
+  leaveSetup().then(session => {
+    if (session === 'in') S.ui.auth = null;
+    else {
       S.ui.auth = 'login';
       S.ui.errors = {};
-      render();
-    });
-  S.ui.auth = null;
-  render();
-};
+    }
+    render();
+  });
 A.onbFinish = () => {
   const o = S.ui.onbData;
-  if (BACKEND) {
-    // The server makes the Workspace and its Owner; the first Project and invites are then synced like any change.
-    const name = o.ws.trim() || 'My Workspace';
-    const url = slug(o.url || name) || 'workspace';
-    return loadingBtn('onb-finish', 0, () =>
-      startWorkspace(name, url, '#5A67D8').then(
-        () => setUpWorkspace(o),
-        err => {
-          if (err.status === 422 && /URL/.test(err.message)) {
-            S.ui.onb = 1;
-            S.ui.errors = { url: err.message };
-          } else toast(err.message, { kind: 'err' });
-          render();
-        },
-      ),
-    );
-  }
-  // The demo names its Workspace here, in the same change.
-  setUpWorkspace(o, () => {
-    if (o.ws.trim()) {
-      const c = ['#2F2E2A', '#5A67D8', '#23918A', '#C54B78'][D().workspaces.length % 4];
-      D().ws = { name: o.ws.trim(), url: o.url || 'workspace', c };
-      if (!D().workspaces.some(w => w.name === D().ws.name)) D().workspaces.push({ id: uid('w'), name: D().ws.name, c, plan: 'Free' });
-    }
-  });
+  // The server makes the Workspace and its Owner; the demo hands back how to name its own, in the same change.
+  loadingBtn('onb-finish', 0, () =>
+    startWorkspace(o).then(
+      nameWorkspace => setUpWorkspace(o, nameWorkspace),
+      err => {
+        if (err.status === 422 && /URL/.test(err.message)) {
+          S.ui.onb = 1;
+          S.ui.errors = { url: err.message };
+        } else toast(err.message, { kind: 'err' });
+        render();
+      },
+    ),
+  );
 };
 /* The first Project from the chosen template, the default view and the invites of onboarding, then into the Project. */
 function setUpWorkspace(o, nameWorkspace = () => {}) {

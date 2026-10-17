@@ -27,6 +27,7 @@ export const MODE = BACKEND
         // The server answers alike for every address, so the screen says the same (before and after the address).
         resetSent: ['If there is an account for', ', we sent a reset link to it'],
         passwordChanged: 'Your other sessions were signed out.',
+        workspaceDeleted: 'Workspace deleted',
       },
     }
   : {
@@ -36,5 +37,6 @@ export const MODE = BACKEND
       text: {
         resetSent: ['We sent a reset link to', ''],
         passwordChanged: 'Other sessions stay signed in.',
+        workspaceDeleted: 'Workspace deleted. Demo data was restored for this prototype.',
       },
     };

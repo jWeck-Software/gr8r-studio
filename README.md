@@ -91,6 +91,7 @@ assets/src/
     views/              list, board, table, calendar, timeline, projects & files
     pages/              settings, auth & onboarding
   core/                 utilities, constants, icons, store (state + lookups), theme,
+                        what each mode keeps, allows and says (mode.js),
                         API client and the sync diff (backend mode)
   data/seed.js          demo workspace data
   ui/                   shared render helpers, toasts, the select dropdown
@@ -101,7 +102,7 @@ assets/src/
   overlays/             task drawer, modals, popovers, context menu, command palette
   features/             teams, subtasks, archive (rendering)
   actions/              user actions, event wiring, keyboard shortcuts, drag and drop,
-                        sync with the backend
+                        sync with the backend, the demo's stand-in for it (demo-account.js)
 ```
 
 ### Layers
@@ -113,7 +114,9 @@ Dependencies point downward:
 3. `actions/` change state and re-render. Each action module registers its handlers on the
    shared action table (`A`) when it loads, so `main.js` imports them after `actions/actions.js`.
    In backend mode `actions/sync.js` registers on the store's save hook (`onSave`) the same way,
-   so `core/store.js` never imports from a higher layer.
+   so `core/store.js` never imports from a higher layer. The account calls (signing in and out,
+   passwords, starting and deleting the Workspace) go through the store's `onSession` registry,
+   which `actions/sync.js` fills in backend mode and `actions/demo-account.js` in the demo.
 
 ## Conventions
 

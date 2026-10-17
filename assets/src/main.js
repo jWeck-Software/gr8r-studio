@@ -55,6 +55,7 @@ import './actions/teams.js';
 import './actions/subtasks.js';
 import './actions/archive.js';
 import './actions/sync.js';
+import './actions/demo-account.js';
 import { S, D, verifyEmail } from './core/store.js';
 import { BACKEND, api } from './core/api.js';
 import { joinToken, resetToken, verifyToken } from './core/join.js';

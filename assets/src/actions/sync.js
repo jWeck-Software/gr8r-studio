@@ -1,11 +1,13 @@
 /* =====================================================================
    SYNC (backend mode): the signed-in session and the Workspace on the server.
-   Callers need nine calls: resumeSession() at boot, and signIn() from the login form,
+   Callers reach this module through store.js (onSession), where the demo hands over its stand-ins
+   for the same calls: resumeSession() at boot, and signIn() from the login form,
    acceptInvite() from the page an Invite email links to (#join/<token>), verifyEmail() from the one
    a verification email links to (#verify/<token>), resetPassword() from the one a password reset
-   email links to (#reset/<token>), startWorkspace() at the end of onboarding, deleteWorkspace()
-   from the settings, signOut() and flush() (before an upload, which names a Task the server must
-   know), which reach this module through store.js (onSession). A User signed in without a Workspace
+   email links to (#reset/<token>), startWorkspace() at the end of onboarding and leaveSetup() before it,
+   deleteWorkspace() from the settings, signOut() and flush() (before an upload, which names a Task the
+   server must know). Signing up and sending links go to the API as they are; changing the password
+   also names the field a refusal is about. A User signed in without a Workspace
    (just verified, or removed from theirs) has nothing to load: signIn(), verifyEmail(),
    resetPassword() and resumeSession() say so, and the caller sends them to onboarding, whose
    startWorkspace() makes one and loads it. When the Workspace goes while signed in (deleted by its
@@ -28,6 +30,7 @@
 import { BACKEND, api } from '../core/api.js';
 import { FIRST_SEQ } from '../core/constants.js';
 import { diffData } from '../core/diff.js';
+import { slug } from '../core/slug.js';
 import { SYNCED, afterSignIn, midEdit, mergeSnapshot, signedInState, syncState } from '../core/sync-rules.js';
 import { DEFAULT_PREFS, S, me, onSave, onSession, ownPrefs, prefsOwnerIs, task } from '../core/store.js';
 import { toast } from '../ui/toast.js';
@@ -93,12 +96,14 @@ async function verifyEmail(token) {
   return member;
 }
 
-/** Sets a new password with the token of a reset link, which signs in; resolves like signIn(). */
+/** Sets a new password with the token of a reset link, which signs in; resolves with 'in', or 'setup' for a User
+    without a Workspace. Without a token (the reset page opened from the app, not from the email) it says where to get one. */
 async function resetPassword(token, password) {
+  if (!token) throw new Error('Open the link in the password reset email to choose a new password.');
   await signingOut;
   const { member } = await api.resetPassword(token, password);
   if (member) await enter(member);
-  return member;
+  return member ? 'in' : 'setup';
 }
 
 /** Deletes the signed-in Owner's Workspace, and leaves it as everyone in it does (workspaceGone()). Rejects with an ApiError. */
@@ -111,6 +116,21 @@ async function deleteWorkspace(name) {
 async function startWorkspace(name, url, c) {
   const { member } = await api.startWorkspace(name, url, c);
   await enter(member);
+}
+
+/** Changes the signed-in User's password. A refusal that is about one of the two passwords names it in `field`:
+    'current' when it is wrong (401), 'new' when the server finds it too weak (422). */
+function changePassword(current, next) {
+  return api.changePassword(current, next).catch(err => {
+    err.field = err.code === 'invalid_credentials' ? 'current' : err.status === 422 ? 'new' : null;
+    throw err;
+  });
+}
+
+/* The Workspace onboarding's answers describe; the first Project and invites are then synced like any change. */
+function startFromOnboarding(o) {
+  const name = o.ws.trim() || 'My Workspace';
+  return startWorkspace(name, slug(o.url || name) || 'workspace', '#5A67D8');
 }
 
 /** Accepts an Invite, which signs in as the new Member, and loads the Workspace. Rejects like signIn(). */
@@ -349,6 +369,24 @@ function sessionEnded() {
 
 if (BACKEND) {
   onSave(push);
-  onSession({ signIn, signOut, acceptInvite, verifyEmail, resetPassword, startWorkspace, deleteWorkspace, resume: resumeSession, flush: settle });
+  onSession({
+    signIn,
+    signOut,
+    signUp: api.signUp,
+    resendVerification: api.resendVerification,
+    forgotPassword: api.forgotPassword,
+    resendResetLink: api.forgotPassword,
+    resetPassword,
+    changePassword,
+    resendInvite: api.resendInvite,
+    acceptInvite,
+    verifyEmail,
+    deleteWorkspace,
+    startWorkspace: startFromOnboarding,
+    // The User in setup has no Workspace to go back to: leaving signs out.
+    leaveSetup: () => signOut().then(() => 'out'),
+    resume: resumeSession,
+    flush: settle,
+  });
   addEventListener('online', push);
 }
