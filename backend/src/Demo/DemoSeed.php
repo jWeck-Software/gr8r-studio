@@ -2,6 +2,7 @@
 
 namespace App\Demo;
 
+use App\Account\WorkspaceDefaults;
 use App\Entity\Activity;
 use App\Entity\Comment;
 use App\Entity\Event;
@@ -29,12 +30,6 @@ final class DemoSeed
 {
     public const string PASSWORD = 'gr8r-studio-demo';
     private const string WORKSPACE_URL = 'gr8rstudio';
-    /** Every demo Member's notification settings. */
-    private const array NOTIF_PREFS = [
-        'email_mention' => true, 'email_assign' => true, 'email_digest' => true, 'email_comment' => false,
-        'push_mention' => true, 'push_assign' => true, 'push_comment' => true, 'push_due' => true,
-        'mention_all' => true, 'assign_self' => true,
-    ];
 
     private \DateTimeImmutable $now;
 
@@ -88,18 +83,12 @@ final class DemoSeed
             ->execute(['domain' => '%@gr8rstudio.com']);
     }
 
-    /** The Teams of src/core/constants.js (TEAMS_SEED), which the frontend used before Teams were stored. */
+    /** The default Teams, with their keys as ids, as the frontend used them before Teams were stored. */
     private function teams(Workspace $ws): void
     {
-        $rows = [
-            ['design', 'Design', 'palette', '#8662C9', 'Product design, brand, and research'],
-            ['eng', 'Engineering', 'code', '#3B82C4', 'Web, mobile, and platform engineering'],
-            ['mkt', 'Marketing', 'megaphone', '#C54B78', 'Campaigns, content, and growth'],
-            ['product', 'Product', 'target', '#C48A1E', 'Roadmap, planning, and QA'],
-        ];
-        foreach ($rows as [$id, $name, $icon, $c, $desc]) {
+        foreach (WorkspaceDefaults::TEAMS as $id => $record) {
             $team = new Team($id, $ws);
-            $team->update(['name' => $name, 'icon' => $icon, 'c' => $c, 'desc' => $desc]);
+            $team->update($record);
             $this->em->persist($team);
         }
     }
@@ -126,7 +115,7 @@ final class DemoSeed
                 $this->em->persist($user);
             }
             $members[$id] = new Member($id, $ws, $name, $email, $role, $team, $title, $c, $status, $last, $tz, $user);
-            $members[$id]->keepPersonal('notifPrefs', self::NOTIF_PREFS);
+            $members[$id]->keepPersonal('notifPrefs', WorkspaceDefaults::NOTIF_PREFS);
             $this->em->persist($members[$id]);
         }
         // src/data/seed.js shows the Owner's.

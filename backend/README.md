@@ -64,6 +64,10 @@ php -d upload_max_filesize=30M -d post_max_size=32M bin/phpunit
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GET /api/health`                  | `{"status":"ok"}`, no sign-in needed                                                                                                                                                                                                                                                                                      |
 | `POST /api/login`                  | `{email, password}` → `{user:{email,name}, member}` + session cookie                                                                                                                                                                                                                                                      |
+| `POST /api/signup`                 | no sign-in needed: `{name, email, password}` → `202`, also for an address that has an account (its owner is emailed that instead), so the answer tells nothing; emails a link `<APP_FRONTEND_URL>/#verify/<token>`; `422 invalid` (weak password, missing name, no email address)                                         |
+| `POST /api/verify-email`           | no sign-in needed: `{token}` → same body as login with `member: null` + session cookie; `404 not_found` (unknown, used or replaced link), `410 expired` (after 24 hours)                                                                                                                                                  |
+| `POST /api/verify-email/resend`    | no sign-in needed: `{email}` → `202` always; emails a new link (the old one stops working) only when the address has an unverified User                                                                                                                                                                                   |
+| `POST /api/workspaces`             | a signed-in User without a Workspace: `{name, url, c}` → `201`, same body as login with their new Owner Member; `422 invalid` (URL taken or no slug, colour), `409 conflict` (a Member of a Workspace already)                                                                                                            |
 | `POST /api/logout`                 | `204`, ends the session                                                                                                                                                                                                                                                                                                   |
 | `GET /api/me`                      | same body as login, or `401`; `403 no_workspace` when the User is no Member (any more)                                                                                                                                                                                                                                    |
 | `GET /api/bootstrap`               | `{data, prefs, views}` for the signed-in Member; `403 no_workspace` as for `/api/me`                                                                                                                                                                                                                                      |
@@ -76,7 +80,9 @@ php -d upload_max_filesize=30M -d post_max_size=32M bin/phpunit
 | `POST /api/files/{id}/copy`        | `{id}` → `201` with a copy of the File, content included, named like the frontend's Duplicate (`notes copy.txt`); `404`, `403`, `422` as for an upload                                                                                                                                                                  |
 
 Errors answer as `{"error": "<code>", "message": "…"}`; without a session every endpoint except
-health, login and the two `/api/invites/{token}` ones answers `401 {"error":"unauthenticated"}`.
+health, login, signup, the two `/api/verify-email` ones and the two `/api/invites/{token}` ones
+answers `401 {"error":"unauthenticated"}`. Signing in with the right password before verifying the
+address is `403 {"error":"unverified"}`; a wrong one stays `401 invalid_credentials`.
 
 ## Where things live
 
@@ -127,6 +133,20 @@ health, login and the two `/api/invites/{token}` ones answers `401 {"error":"una
   app's) or, when the address has a User already (a removed Member's User stays), requires that
   User's current password and keeps it; then the Member is active and the controller signs them in
   (`Security::login()`).
+- `src/Account/Accounts.php`: signing up, verifying and starting a Workspace, the one place that
+  knows the rules of a new account. `signUp()` applies the password policy, then answers the same
+  for every address: a new one becomes an unverified User and gets a verification link; one with a
+  verified User gets a "you already have an account" email and nothing changes; one with an
+  unverified User starts over (the latest name and password, a link that replaces the earlier one),
+  so whoever signed up with someone else's address cannot keep it from them. `verify()` redeems the
+  link (valid 24 hours) and the controller signs the User in; `resendVerification()` emails a new
+  link only to an unverified User. Until then `App\Security\VerifiedUserChecker` refuses the
+  sign-in, after the password check, so only someone who knows the password learns the account
+  waits for verification. Accepting an Invite verifies an unverified User too (the link reached the
+  address). `startWorkspace()` makes the Workspace with the User as its Owner Member, the default
+  Teams (with ids of their own: Team ids are unique across Workspaces) and notification settings
+  (`WorkspaceDefaults.php`, which the demo seed uses too); the frontend then syncs the first Project.
+  Emails go out after the commit (`Transaction::afterCommit()`); one that can't be sent is logged.
 - `src/Token/Tokens.php`: one-time links, the one place that issues and redeems their tokens, for
   Invites and email verification (`src/Token/Purpose.php` says how long each works). A token is 32
   random bytes as URL-safe base64, stored only as its SHA-256 hash (`one_time_token`); a subject

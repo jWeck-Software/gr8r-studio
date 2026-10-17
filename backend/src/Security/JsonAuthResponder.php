@@ -31,6 +31,10 @@ final readonly class JsonAuthResponder implements AuthenticationSuccessHandlerIn
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): Response
     {
+        if ($exception instanceof Unverified) {
+            return new JsonResponse(['error' => Unverified::ERROR, 'message' => $exception->getMessageKey()], 403);
+        }
+
         return new JsonResponse(['error' => 'invalid_credentials', 'message' => 'Email or password is incorrect.'], 401);
     }
 

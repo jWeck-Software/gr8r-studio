@@ -109,7 +109,8 @@ final readonly class Invites
     /**
      * Accepts the Invite whose link holds this token: the invited person becomes a User with this
      * name and password, and their Member is active under that name. The link stops working.
-     * When their email address has a User already, the password has to be that User's; it stays.
+     * When their email address has a User already, the password has to be that User's; it stays,
+     * and that User counts as verified from now on.
      *
      * @throws InviteRefused when the link does not lead into the Workspace (any more)
      */
@@ -164,6 +165,8 @@ final readonly class Invites
                 throw InviteRefused::inAnotherWorkspace($email);
             }
             $user->rename($name);
+            // The link reached the address: one that signed up and never verified is verified now.
+            $user->verify();
 
             return $user;
         }

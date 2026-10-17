@@ -18,6 +18,7 @@ security:
             pattern: ^/api/
             lazy: true
             provider: app_users
+            user_checker: App\Security\VerifiedUserChecker
             json_login:
                 check_path: api_login
                 username_path: email
@@ -30,7 +31,7 @@ security:
 
     # Note: Only the *first* matching rule is applied
     access_control:
-        - { path: ^/api/(health|login|invites/[^/]+(/accept)?)$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/(health|login|signup|verify-email(/resend)?|invites/[^/]+(/accept)?)$, roles: PUBLIC_ACCESS }
         - { path: ^/api/, roles: IS_AUTHENTICATED }
 
 when@test:

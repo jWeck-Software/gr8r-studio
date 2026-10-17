@@ -6,7 +6,10 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
-/** A person who can sign in, identified by an email address and a password. */
+/**
+ * A person who can sign in, identified by an email address and a password. Whoever signs up is
+ * unverified until they open the link emailed to that address; until then they cannot sign in.
+ */
 #[ORM\Entity]
 #[ORM\Table(name: 'app_user')]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
@@ -24,6 +27,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         private string $email,
         #[ORM\Column(length: 120)]
         private string $name,
+        #[ORM\Column(options: ['default' => true])]
+        private bool $verified = true,
     ) {
     }
 
@@ -45,6 +50,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function rename(string $name): void
     {
         $this->name = $name;
+    }
+
+    /** Whether they proved the email address is theirs: by the link of signing up, or of an Invite. */
+    public function isVerified(): bool
+    {
+        return $this->verified;
+    }
+
+    public function verify(): void
+    {
+        $this->verified = true;
     }
 
     public function getUserIdentifier(): string
