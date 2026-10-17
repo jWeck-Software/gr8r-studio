@@ -53,8 +53,8 @@ sign-in in this mode), the ones this browser kept are sent, unless they belonged
 Teammates' changes come in when the tab regains focus and every 60 s
 while it is visible (after pending changes are sent, and not while you are typing in a field or
 have a dialog open); an expired session keeps your unsynced changes and sends them once you sign
-in again as the same Member. Inviting someone emails them a link (in dev, Mailpit catches it: inbox
-on http://127.0.0.1:8025) that opens the app at `#join/<token>`, where they choose a name and a
+in again as the same Member. Inviting someone emails them a link (in dev, links from emails are in
+`var/log/mail.log`) that opens the app at `#join/<token>`, where they choose a name and a
 password and are signed in as the new Member; "Resend invite" in a Member's menu sends a fresh link.
 Signing up sends a verification link the same way (`#verify/<token>`); opening it signs the new User
 in and continues into onboarding, whose last step creates their own Workspace, with them as its Owner,
@@ -131,7 +131,7 @@ Dependencies point downward:
 ## Continuous integration
 
 Every push and pull request runs lint, the format check, the unit tests and both builds,
-and the backend's PHPUnit suite against PostgreSQL (`.github/workflows/ci.yml`).
+and the backend's PHPUnit suite against MariaDB 10.11 (`.github/workflows/ci.yml`).
 
 ## Deploy
 
@@ -139,11 +139,12 @@ and the backend's PHPUnit suite against PostgreSQL (`.github/workflows/ci.yml`).
 
 ## Backend
 
-Symfony 8.1 and PostgreSQL 17. The API speaks the frontend's own data shape: `GET /api/bootstrap`
+Symfony 8.1 and MariaDB 10.11. The API speaks the frontend's own data shape: `GET /api/bootstrap`
 returns the visible Workspace as the frontend's `S.data`, and `POST /api/sync` applies an ordered
 batch of writes in one transaction (see `docs/adr/` and `CONTEXT.md`).
 
-Requirements: PHP 8.4 with `pdo_pgsql`, Composer 2, Docker with Compose.
+Requirements: PHP 8.4 with `pdo_mysql`, Composer 2, a local MariaDB 10.11 with the databases
+`gr8r` (dev) and `gr8r_test` (tests) and a user with all rights on both.
 
 ### Run it
 
@@ -152,12 +153,11 @@ All commands run in the repository root.
 ```sh
 composer install
 
-# PostgreSQL 17 on host port 5433 (container "gr8r-db"), and Mailpit (container "gr8r-mailpit"),
-# which catches every email the backend sends: SMTP on 1025, inbox on http://127.0.0.1:8025
-docker compose up -d --wait
+# The local MariaDB, in .env.local (dev) and .env.test.local (tests; the database name gets _test
+# appended, so gr8r becomes gr8r_test), both git-ignored:
+# DATABASE_URL="mysql://<user>:<password>@127.0.0.1:3306/gr8r?serverVersion=10.11.14-MariaDB&charset=utf8mb4"
 
-# Database and schema (dev)
-php bin/console doctrine:database:create --if-not-exists
+# Schema (dev)
 php bin/console doctrine:migrations:migrate -n
 
 # Demo Workspace "Gr8r Studio", dated relative to today. Re-running replaces it with a fresh copy.
@@ -197,17 +197,25 @@ npm run build   # the app into public/, calling the API relative to itself (api/
 APP_FRONTEND_URL=http://localhost/repos/gr8r-studio/public
 ```
 
-Then open `http://localhost/repos/gr8r-studio/public/`. The database and Mailpit still come from
-`docker compose up -d --wait`; no PHP or Vite server is needed. `var/` must be writable by PHP-FPM's
-user (cache, sessions, uploaded Files).
+Then open `http://localhost/repos/gr8r-studio/public/`; no PHP or Vite server is needed. `var/` must be writable by PHP-FPM's
+user (cache, sessions, uploaded Files, the mail log).
+
+### Emails
+
+Emails go nowhere (`MAILER_DSN=null://null`). In dev, links from emails are in `var/log/mail.log`:
+one line per email with its recipient, subject and links (`src/EventListener/MailLogListener.php`),
+so a verification, password reset or Invite link can be opened from there:
+
+```sh
+tail -n 1 var/log/mail.log
+```
 
 ### Tests
 
-PHPUnit runs against the real PostgreSQL test database (`gr8r_test`); every test runs in a transaction
+PHPUnit runs against the real MariaDB test database (`gr8r_test`); every test runs in a transaction
 that is rolled back (dama/doctrine-test-bundle).
 
 ```sh
-php bin/console doctrine:database:create --env=test --if-not-exists
 php bin/console doctrine:migrations:migrate --env=test -n
 php bin/phpunit
 # The test of a File of exactly 25 MB runs only with PHP's upload limits raised; otherwise it is skipped:
@@ -371,7 +379,7 @@ reverse proxy, configure `trusted_proxies`, or every client counts as the proxy'
   each in `src/Sync/Handler/`: Preferences `prefs` (`PreferencesHandler`), view settings `views`
   (`ViewSettingsHandler`), notification settings `notifPrefs` and `recentSearches`. A `set` replaces
   the value for the actor only, Guests included, and bootstrap returns each Member theirs (`prefs` and
-  `views` at the top level, the other two in `data`); they are kept on the Member (`personal`, JSONB).
+  `views` at the top level, the other two in `data`); they are kept on the Member (`personal`, JSON).
   Each is checked for its shape and may take at most 64 KB as JSON (`422`). Preferences are plain
   values (text up to 200 characters, numbers, booleans, null; at most 100), with `theme` and
   `weekStart` checked; `name` and `title` are the Member record's and are dropped. Views are objects

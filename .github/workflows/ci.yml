@@ -24,33 +24,34 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     services:
-      postgres:
-        image: postgres:17
+      mariadb:
+        image: mariadb:10.11
         env:
-          POSTGRES_DB: gr8r
-          POSTGRES_USER: gr8r
-          POSTGRES_PASSWORD: gr8r
+          # The tests' database: doctrine.yaml appends _test to the database name in DATABASE_URL.
+          MARIADB_DATABASE: gr8r_test
+          MARIADB_USER: gr8r
+          MARIADB_PASSWORD: gr8r
+          MARIADB_ROOT_PASSWORD: root
         ports:
-          - 5432:5432
+          - 3306:3306
         options: >-
-          --health-cmd "pg_isready -U gr8r -d gr8r"
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
-      DATABASE_URL: postgresql://gr8r:gr8r@127.0.0.1:5432/gr8r?serverVersion=17&charset=utf8
+      DATABASE_URL: mysql://gr8r:gr8r@127.0.0.1:3306/gr8r?serverVersion=10.11.14-MariaDB&charset=utf8mb4
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: pdo_pgsql, intl
+          extensions: pdo_mysql, intl
           # above the 25 MB a File may be, so the test of a File of exactly 25 MB runs
           ini-values: upload_max_filesize=30M, post_max_size=32M
           coverage: none
           tools: composer:v2
       - run: composer install --no-interaction --no-progress
-      - run: php bin/console doctrine:database:create --env=test --if-not-exists
       - run: php bin/console doctrine:migrations:migrate --env=test --no-interaction
       - run: php bin/console doctrine:schema:validate --env=test
       - run: php bin/phpunit

@@ -1,0 +1,3 @@
+# MariaDB instead of PostgreSQL in Docker
+
+The backend uses the MariaDB 10.11 that runs on the development machine, not PostgreSQL in Docker (this replaces that part of ADR 0001); CI uses the `mariadb:10.11` image. Connections run at READ COMMITTED, as PostgreSQL does, so a batch that locks a Project sees Task keys committed meanwhile (ADR 0003). `key` is reserved in MariaDB, so Task and Project keys are stored in `task_key` and `project_key`. Tables are `utf8mb4_unicode_ci`; user emails and one-time token columns are `utf8mb4_bin`, so they match exactly as before. Emails go to the null transport, and in dev each one is logged with its links to `var/log/mail.log` instead of Mailpit.
