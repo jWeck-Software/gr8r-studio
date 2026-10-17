@@ -11,7 +11,12 @@ use App\Sync\Fields;
 use App\Sync\SyncRejected;
 use Doctrine\ORM\EntityManagerInterface;
 
-/** Projects: created, edited, duplicated, archived, restored and deleted. */
+/**
+ * Projects: created, edited, duplicated, archived, restored and deleted.
+ *
+ * Two Projects may share a key: Task keys are unique per Project, and refusing a key in use
+ * would reveal Private projects to those who can't see them.
+ */
 final readonly class ProjectHandler implements CollectionHandler
 {
     private const array STATUSES = ['planning', 'active', 'risk', 'hold', 'complete'];
@@ -53,9 +58,6 @@ final readonly class ProjectHandler implements CollectionHandler
             return [];
         }
         $this->authorize($actor, $id, $project);
-        if ($this->keyTaken($actor, $record['key'], $id)) {
-            throw SyncRejected::invalid(\sprintf('The Project key %s is already used.', $record['key']));
-        }
         if (null === $project) {
             $project = new Project($id, $ws);
             $this->em->persist($project);
@@ -104,14 +106,6 @@ final readonly class ProjectHandler implements CollectionHandler
         if (null === $member || $member->getWorkspace() !== $actor->getWorkspace()) {
             throw SyncRejected::invalid(\sprintf('The Project\'s %s "%s" is not a Member of this Workspace.', $as, $id));
         }
-    }
-
-    private function keyTaken(Member $actor, string $key, string $id): bool
-    {
-        return null !== $this->em->createQuery('SELECT p.id FROM '.Project::class.' p WHERE p.workspace = :ws AND p.key = :key AND p.id <> :id')
-            ->setParameters(['ws' => $actor->getWorkspace(), 'key' => $key, 'id' => $id])
-            ->setMaxResults(1)
-            ->getOneOrNullResult();
     }
 
     /**

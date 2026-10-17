@@ -41,12 +41,20 @@ final class SyncProjectsTest extends ApiTestCase
         self::assertNull($this->project('pq7x2'));
     }
 
-    public function testProjectKeyMustBeUniqueInTheWorkspace(): void
+    /**
+     * Project keys need not be unique: Task keys are unique per Project, not per Workspace. A refusal
+     * would tell John that a Project he cannot see, the Private Customer Portal, is keyed CP.
+     */
+    public function testAMemberOutsideAPrivateProjectCreatesAProjectWithItsKey(): void
     {
-        $body = $this->sync([['op' => 'put', 'type' => 'projects', 'id' => 'pq7x2', 'data' => self::newProject(['key' => 'WEB'])]]);
+        $this->client->request('POST', '/api/logout');
+        $this->signIn('john@gr8rstudio.com');
 
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame(['error' => 'invalid', 'op' => 0, 'message' => 'The Project key WEB is already used.'], $body);
+        $body = $this->sync([['op' => 'put', 'type' => 'projects', 'id' => 'pq7x2', 'data' => self::newProject(['key' => 'CP'])]]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame(['ok' => true], $body);
+        self::assertSame('CP', $this->project('pq7x2')['key']);
     }
 
     public function testMemberEditsAProjectAndItsSnapshotSeqIsIgnored(): void
