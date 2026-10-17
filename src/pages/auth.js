@@ -41,6 +41,7 @@ export function renderAuth() {
     return authShell(
       `<form class="auth-card${S.ui.fx.auth ? ' fx-auth' : ''}" data-submit="doSignup" novalidate>
     <div style="display:flex;justify-content:center">${LOGO(30)}</div><h1>Create your account</h1><p class="sub">Free for up to 3 members. No credit card required.</p>
+    ${e.signup ? `<div class="alert danger" role="alert">${ic('circle-alert', 15)}<span>${esc(e.signup)}</span></div>` : ''}
     ${socialBtns()}<div class="or">or sign up with email</div>
     <div class="field"><label class="label" for="s-name">Full name</label><input class="input input-lg ${icls('name')}" id="s-name" value="${esc(f.name)}" autocomplete="name" placeholder="Tanjim Islam">${ferr('name')}</div>
     <div class="field"><label class="label" for="s-email">Work email</label><input class="input input-lg ${icls('email')}" id="s-email" type="email" value="" autocomplete="email" placeholder="you@company.com">${ferr('email')}</div>
@@ -71,10 +72,14 @@ export function renderAuth() {
     );
   if (s === 'verify')
     return authShell(`<div class="auth-card${S.ui.fx.auth ? ' fx-auth' : ''}"><div style="display:flex;justify-content:center"><span class="ftype" style="--c:var(--accent);width:44px;height:44px;border-radius:11px">${ic('mail', 20)}</span></div><h1>Verify your email</h1><p class="sub">We sent a verification link to <b style="color:var(--text)">${esc(f.email)}</b>. Click it to activate your account.</p>
+    ${e.verify ? `<div class="alert info" role="alert">${ic('info', 15)}<span>${esc(e.verify)}</span></div>` : ''}
     <div class="panel" style="padding:12px 14px;display:flex;gap:10px;align-items:center"><span class="sk" style="width:8px;height:8px;border-radius:50%;animation-duration:1.1s"></span><span class="muted" style="font-size:13px">Waiting for verification…</span></div>
     <button class="btn btn-primary btn-lg btn-block" data-a="verified">I've verified my email</button>
     <button class="btn btn-secondary btn-lg btn-block" data-a="resend" data-v="verify" id="resend-btn" ${S.ui.resendT > 0 ? 'disabled' : ''}>${S.ui.resendT > 0 ? `Resend email in <span class="num" id="resend-t">${S.ui.resendT}</span>s` : 'Resend email'}</button>
     <p class="auth-foot">Wrong email? <button class="link" data-a="auth" data-v="signup">Change it</button></p></div>`);
+  if (s === 'verify-failed')
+    return authShell(`<div class="auth-card${S.ui.fx.auth ? ' fx-auth' : ''}"><div style="display:flex;justify-content:center"><span class="ftype" style="--c:var(--red);width:44px;height:44px;border-radius:11px">${ic('link-2-off', 20)}</span></div><h1>This verification link doesn't work</h1><p class="muted join-sub" style="text-align:center;margin:-8px 0 4px">${esc(e.verify || '')}</p>
+    <button class="btn btn-primary btn-lg btn-block" data-a="auth" data-v="login">Go to sign in</button></div>`);
   return '';
 }
 
@@ -126,7 +131,7 @@ export function renderOnboarding() {
     const e = S.ui.errors.ws;
     body = `<h1>Create your workspace</h1><p class="sub">A workspace is where your team's projects live.</p>
     <div class="field"><label class="label" for="o-ws">Workspace name</label><input class="input input-lg ${e ? 'is-error' : ''}" id="o-ws" data-in="onbWs" value="${esc(o.ws)}" placeholder="e.g. Gr8r Studio" autofocus>${e ? `<span class="err">${ic('circle-alert', 12)}${e}</span>` : ''}</div>
-    <div class="field"><label class="label" for="o-url">Workspace URL</label><div class="row" style="gap:0"><span class="input input-lg" style="width:auto;background:var(--surface-2);border-right:0;border-radius:6px 0 0 6px;display:flex;align-items:center;color:var(--text-2)">gr8rstudio.com/</span><input class="input input-lg" id="o-url" value="${esc(o.url || '')}" data-in="onbUrl" style="border-radius:0 6px 6px 0" placeholder="gr8rstudio"></div>${o.url ? `<span class="hint" style="color:var(--green);display:flex;gap:4px;align-items:center">${ic('check', 12)}gr8rstudio.com/${esc(o.url)} is available</span>` : ''}</div>${nav()}`;
+    <div class="field"><label class="label" for="o-url">Workspace URL</label><div class="row" style="gap:0"><span class="input input-lg" style="width:auto;background:var(--surface-2);border-right:0;border-radius:6px 0 0 6px;display:flex;align-items:center;color:var(--text-2)">gr8rstudio.com/</span><input class="input input-lg" id="o-url" value="${esc(o.url || '')}" data-in="onbUrl" style="border-radius:0 6px 6px 0" placeholder="gr8rstudio"></div>${S.ui.errors.url ? `<span class="err">${ic('circle-alert', 12)}${esc(S.ui.errors.url)}</span>` : o.url ? `<span class="hint" style="color:var(--green);display:flex;gap:4px;align-items:center">${ic('check', 12)}gr8rstudio.com/${esc(o.url)} is available</span>` : ''}</div>${nav()}`;
   }
   if (st === 2)
     body = `<h1>How does your team work?</h1><p class="sub">We'll set your default project view.</p><div class="opts" role="radiogroup" style="grid-template-columns:repeat(2,minmax(0,1fr))">${[
@@ -167,7 +172,7 @@ export function renderOnboarding() {
           `<div class="row ready-row" style="padding:12px 14px;border-top:1px solid var(--divider);gap:12px"><span class="ftype" style="--c:var(--accent)">${ic(i, 14)}</span><div class="grow"><div style="font-weight:500">${t}</div><div class="faint" style="font-size:12px">${s}</div></div><span class="ok" style="color:var(--green);display:inline-flex">${ic('check', 15)}</span></div>`,
       )
       .join('')}</div>
-    <button class="btn btn-primary btn-lg btn-block" data-a="onbFinish">Open workspace${ic('arrow-right', 15)}</button>`;
+    <button class="btn btn-primary btn-lg btn-block" data-a="onbFinish" id="onb-finish">Open workspace${ic('arrow-right', 15)}</button>`;
   }
   return authShell(
     `<div class="auth-card onb${S.ui.fx.step ? ' fx-step' : ''}" style="max-width:${st === 5 ? 440 : 560}px">

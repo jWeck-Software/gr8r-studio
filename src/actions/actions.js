@@ -18,8 +18,10 @@ import {
   proj,
   flushSync,
   save,
+  resumeSession,
   signIn,
   signOut,
+  startWorkspace,
   task,
   tasksOf,
   visibleProjects,
@@ -2202,8 +2204,15 @@ A.doLogin = () => {
   if (!BACKEND) return loadingBtn('login-btn', 750, () => enterApp(`Signed in as ${em}`));
   loadingBtn('login-btn', 0, () =>
     signIn(em, pw).then(
-      () => enterApp(`Signed in as ${em}`),
+      member => (member ? enterApp(`Signed in as ${em}`) : (beginOnboarding(), render())),
       err => {
+        if (err.code === 'unverified') {
+          // The verify screen, with the address to send a new link to.
+          S.ui.auth = 'verify';
+          S.ui.errors = { verify: err.message };
+          render();
+          return;
+        }
         S.ui.errors = { login: err.message };
         render();
         $('#l-pw')?.focus();
@@ -2253,7 +2262,6 @@ A.socialAuth = el => {
   setTimeout(() => enterApp(`Signed in with ${el.dataset.v}`), 800);
 };
 A.doSignup = () => {
-  if (demoOnly()) return;
   const e = (S.ui.errors = {});
   const nm = $('#s-name').value.trim(),
     em = $('#s-email').value.trim(),
@@ -2268,11 +2276,20 @@ A.doSignup = () => {
     $('#s-email').value = em;
     return;
   }
-  loadingBtn('signup-btn', 800, () => {
+  const verify = () => {
     S.ui.auth = 'verify';
+    S.ui.pwNew = '';
     startResend();
     render();
-  });
+  };
+  if (!BACKEND) return loadingBtn('signup-btn', 800, verify);
+  loadingBtn('signup-btn', 0, () =>
+    api.signUp(nm, em, pw).then(verify, err => {
+      S.ui.errors = { signup: err.message };
+      render();
+      $('#s-email').value = em;
+    }),
+  );
 };
 export function startResend() {
   S.ui.resendT = 30;
@@ -2289,17 +2306,36 @@ export function startResend() {
 }
 A.resend = el => {
   if (el.dataset.v === 'verify') {
-    startResend();
-    render();
-    toast(`Verification email sent to ${S.ui.af.email}`);
+    const sent = () => {
+      startResend();
+      render();
+      toast(`Verification email sent to ${S.ui.af.email}`);
+    };
+    // The server answers alike for every address, so the toast says the same.
+    if (BACKEND) api.resendVerification(S.ui.af.email).then(sent, err => toast(err.message, { kind: 'err' }));
+    else sent();
   } else toast(`Reset link sent to ${S.ui.af.email}`);
 };
-A.verified = () => {
+/* Onboarding from its first step: after verifying, or for a User signed in without a Workspace. The caller renders. */
+export function beginOnboarding() {
   S.ui.auth = 'onboarding';
   S.ui.onb = 0;
+  S.ui.errors = {};
   S.ui.onbData.ws = '';
   S.ui.onbData.url = '';
-  render();
+  S.ui.onbData.urlTouched = false;
+}
+A.verified = () => {
+  if (!BACKEND) return (beginOnboarding(), render());
+  // The link signs in the browser it is opened in: if that was this one, carry on from here.
+  resumeSession().then(
+    session => {
+      if (session === 'setup') return (beginOnboarding(), render());
+      if (session === 'in') return enterApp(`Welcome to ${D().ws.name}`);
+      toast('Open the link in the email we sent you to verify your address.', { kind: 'info' });
+    },
+    err => toast(err.message, { kind: 'err' }),
+  );
 };
 A.doForgot = () => {
   const em = $('#f-email').value.trim();
@@ -2356,6 +2392,7 @@ IN.onbWs = el => {
 IN.onbUrl = el => {
   S.ui.onbData.url = el.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-');
   S.ui.onbData.urlTouched = true;
+  S.ui.errors.url = null;
   render();
 };
 IN.onbProj = el => {
@@ -2396,22 +2433,49 @@ A.onbNext = el => {
   setTimeout(() => $('.auth input')?.focus(), 20);
 };
 A.onbExit = () => {
+  // Backend mode: the signed-in User has no Workspace to show, so leaving setup signs out.
+  if (BACKEND)
+    return signOut().then(() => {
+      S.ui.auth = 'login';
+      S.ui.errors = {};
+      render();
+    });
   S.ui.auth = null;
   render();
 };
 A.onbFinish = () => {
-  if (demoOnly()) {
-    S.ui.auth = null;
-    return render();
-  }
   const o = S.ui.onbData;
-  let p;
-  mutate(() => {
+  if (BACKEND) {
+    // The server makes the Workspace and its Owner; the first Project and invites are then synced like any change.
+    const name = o.ws.trim() || 'My Workspace';
+    const url = slug(o.url || name) || 'workspace';
+    return loadingBtn('onb-finish', 0, () =>
+      startWorkspace(name, url, '#5A67D8').then(
+        () => setUpWorkspace(o),
+        err => {
+          if (err.status === 422 && /URL/.test(err.message)) {
+            S.ui.onb = 1;
+            S.ui.errors = { url: err.message };
+          } else toast(err.message, { kind: 'err' });
+          render();
+        },
+      ),
+    );
+  }
+  // The demo names its Workspace here, in the same change.
+  setUpWorkspace(o, () => {
     if (o.ws.trim()) {
       const c = ['#2F2E2A', '#5A67D8', '#23918A', '#C54B78'][D().workspaces.length % 4];
       D().ws = { name: o.ws.trim(), url: o.url || 'workspace', c };
       if (!D().workspaces.some(w => w.name === D().ws.name)) D().workspaces.push({ id: uid('w'), name: D().ws.name, c, plan: 'Free' });
     }
+  });
+};
+/* The first Project from the chosen template, the default view and the invites of onboarding, then into the Project. */
+function setUpWorkspace(o, nameWorkspace = () => {}) {
+  let p;
+  mutate(() => {
+    nameWorkspace();
     S.prefs.defaultTab = { kanban: 'board', list: 'list', timeline: 'timeline', table: 'table' }[o.team] || 'board';
     const tm = TEMPLATES.find(t => t.id === o.tmpl) || TEMPLATES[2];
     p = createProject(
@@ -2446,4 +2510,4 @@ A.onbFinish = () => {
   S.ui.auth = null;
   go('project', { id: p.id, tab: S.prefs.defaultTab });
   toast(`Welcome to ${D().ws.name}`);
-};
+}

@@ -102,6 +102,10 @@ export const onSession = calls => Object.assign(account, calls);
 export const signIn = (email, password) => account.signIn(email, password);
 export const signOut = () => account.signOut();
 export const acceptInvite = (token, name, password) => account.acceptInvite(token, name, password);
+export const verifyEmail = token => account.verifyEmail(token);
+export const startWorkspace = (name, url, c) => account.startWorkspace(name, url, c);
+/* 'in', 'out' or 'setup' (signed in without a Workspace), as at boot. */
+export const resumeSession = () => account.resume();
 /* Sends what is not synced yet, now: an upload names a Task that may be new. */
 export const flushSync = () => account.flush?.() ?? Promise.resolve();
 export function save() {

@@ -55,10 +55,10 @@ import './actions/teams.js';
 import './actions/subtasks.js';
 import './actions/archive.js';
 import './actions/sync.js';
-import { S, D } from './core/store.js';
+import { S, D, verifyEmail } from './core/store.js';
 import { BACKEND, api } from './core/api.js';
-import { joinToken } from './core/join.js';
-import { A } from './actions/actions.js';
+import { joinToken, verifyToken } from './core/join.js';
+import { A, beginOnboarding } from './actions/actions.js';
 import { resumeSession } from './actions/sync.js';
 import { ROUTE_NAMES, render, go } from './shell/render.js';
 
@@ -74,8 +74,20 @@ import { ROUTE_NAMES, render, go } from './shell/render.js';
   const h = (location.hash || '').slice(1);
   const authRoutes = ['login', 'signup', 'forgot', 'reset', 'verify', 'onboarding'];
   const token = BACKEND && joinToken(location.hash);
+  const verifying = BACKEND && verifyToken(location.hash);
   S.ui.route = S.prefs.home || 'home';
-  if (token) {
+  if (verifying) {
+    // The link in a verification email works once: a reload must not open it again.
+    history.replaceState(null, '', location.pathname + location.search);
+    try {
+      // Verified and signed in; a new User goes on to set up their Workspace.
+      if (!(await verifyEmail(verifying))) beginOnboarding();
+      else S.ui.route = S.prefs.home || 'home';
+    } catch (e) {
+      S.ui.auth = 'verify-failed';
+      S.ui.errors.verify = e.message;
+    }
+  } else if (token) {
     // The link in an Invite email: the page to join shows whatever session this browser has.
     S.ui.auth = 'join';
     S.ui.join = { token };
@@ -87,9 +99,12 @@ import { ROUTE_NAMES, render, go } from './shell/render.js';
   } else if (authRoutes.includes(h)) S.ui.auth = h;
   else if (h && ROUTE_NAMES[h]) S.ui.route = h;
   // Backend mode: nothing renders until the server says who is signed in, so the demo data never flashes.
-  if (BACKEND && !token) {
+  if (BACKEND && !token && !verifying) {
     try {
-      if (!(await resumeSession())) S.ui.auth ||= 'login';
+      const session = await resumeSession();
+      if (session === 'out') S.ui.auth ||= 'login';
+      // Signed in without a Workspace: set one up (or exit setup, which signs out).
+      else if (session === 'setup') beginOnboarding();
       // The Member's start page, now that their Preferences have come from the server.
       else if (!ROUTE_NAMES[h]) S.ui.route = S.prefs.home || 'home';
     } catch (e) {
@@ -99,6 +114,9 @@ import { ROUTE_NAMES, render, go } from './shell/render.js';
   }
   render();
 })();
+
+// A link from an email opened in a tab that runs the app already changes only the hash: start over with it.
+if (BACKEND) addEventListener('hashchange', () => (joinToken(location.hash) || verifyToken(location.hash)) && location.reload());
 
 // Dev-only handle for debugging and screenshot tooling; stripped from production builds.
 if (import.meta.env.DEV) window.__gr8r = { S, D, A, go, render };

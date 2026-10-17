@@ -60,6 +60,11 @@ export const api = {
   me: () => call('GET', '/me'),
   login: (email, password) => call('POST', '/login', { email, password }),
   logout: () => call('POST', '/logout'),
+  signUp: (name, email, password) => call('POST', '/signup', { name, email, password }),
+  verifyEmail: token => call('POST', '/verify-email', { token }),
+  resendVerification: email => call('POST', '/verify-email/resend', { email }),
+  /** Starts a Workspace whose Owner the signed-in User (who has none) becomes; resolves with /api/me's body. */
+  startWorkspace: (name, url, c) => call('POST', '/workspaces', { name, url, c }),
   bootstrap: () => call('GET', '/bootstrap'),
   sync: ops => call('POST', '/sync', { ops }),
   invite: token => call('GET', `/invites/${encodeURIComponent(token)}`),
