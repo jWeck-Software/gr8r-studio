@@ -26,6 +26,7 @@
    same Member sends them, another Member signing in discards them.
    ===================================================================== */
 import { BACKEND, api } from '../core/api.js';
+import { FIRST_SEQ } from '../core/constants.js';
 import { diffData } from '../core/diff.js';
 import { SYNCED, afterSignIn, midEdit, mergeSnapshot, signedInState, syncState } from '../core/sync-rules.js';
 import { DEFAULT_PREFS, S, me, onSave, onSession, ownPrefs, prefsOwnerIs, task } from '../core/store.js';
@@ -294,7 +295,7 @@ function applyKeys(keys, copies) {
       t.key = key;
       const p = data.projects.find(x => x.id === t.project);
       const n = Number(key.slice(key.lastIndexOf('-') + 1));
-      if (p && n > (p.seq || 200)) p.seq = n;
+      if (p && n > (p.seq || FIRST_SEQ)) p.seq = n;
     }
   }
   render();

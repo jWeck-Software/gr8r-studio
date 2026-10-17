@@ -61,6 +61,9 @@ export const PICONS = [
   'folder',
   'sparkles',
 ];
+/* The floor of a Project's Task numbers: without a seq yet, its next new Task is KEY-201.
+   Mirrors App\Entity\TaskKeys::FIRST_SEQ on the server; change both together. */
+export const FIRST_SEQ = 200;
 export const ROLES = ['Owner', 'Admin', 'Member', 'Guest'];
 export const TEAMS_SEED = [
   { id: 'design', name: 'Design', icon: 'palette', c: '#8662C9', desc: 'Product design, brand, and research' },

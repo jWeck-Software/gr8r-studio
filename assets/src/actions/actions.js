@@ -2,7 +2,7 @@
    ACTIONS · INPUT HANDLERS · DRAG & DROP · KEYBOARD · INIT
    ===================================================================== */
 import { $, $$, TODAY, addD, dOff, esc, fmtDate, iso, parse, uid } from '../core/utils.js';
-import { PR, PSTAT, ST } from '../core/constants.js';
+import { FIRST_SEQ, PR, PSTAT, ST } from '../core/constants.js';
 import { seed } from '../data/seed.js';
 import {
   D,
@@ -57,7 +57,7 @@ export function demoOnly() {
 
 /* ---------- task mutations ---------- */
 export function nextKey(p) {
-  p.seq = (p.seq || 200) + 1;
+  p.seq = (p.seq || FIRST_SEQ) + 1;
   return p.key + '-' + p.seq;
 }
 export function createTask(f) {
