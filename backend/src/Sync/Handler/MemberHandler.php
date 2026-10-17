@@ -4,6 +4,7 @@ namespace App\Sync\Handler;
 
 use App\Access\WorkspaceAccess;
 use App\Entity\Member;
+use App\Invite\Invites;
 use App\Entity\Project;
 use App\Entity\Task;
 use App\Entity\Team;
@@ -25,6 +26,7 @@ final readonly class MemberHandler implements CollectionHandler
         private EntityManagerInterface $em,
         private WorkspaceAccess $access,
         private WorkspaceRecords $records,
+        private Invites $invites,
     ) {
     }
 
@@ -80,7 +82,7 @@ final readonly class MemberHandler implements CollectionHandler
 
     /**
      * A Member the Workspace doesn't have yet is someone invited by email: they have no User until
-     * they accept.
+     * they accept the Invite they are sent.
      *
      * @param array{name: string, title: string, c: string, role: string, team: string} $changes
      */
@@ -99,6 +101,7 @@ final readonly class MemberHandler implements CollectionHandler
         }
         $member = new Member($id, $actor->getWorkspace(), $changes['name'], $email, $changes['role'], $changes['team'], $changes['title'], $changes['c'], 'invited', null, $fields->string('tz', 80));
         $this->em->persist($member);
+        $this->invites->send($actor, $member);
     }
 
     private static function refuse(?string $refusal): void

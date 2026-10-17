@@ -1,0 +1,187 @@
+<?php
+
+namespace App\Tests\Api;
+
+use Symfony\Component\Mime\Email;
+
+/**
+ * Invites as an invited person meets them: an email with a link, and accepting it by choosing a
+ * name and a password. Sarah is an Admin; Ana is someone new.
+ */
+final class InvitesTest extends ApiTestCase
+{
+    private const string LINK = '#^http://localhost:5173/\#join/([A-Za-z0-9_-]{43})$#m';
+
+    public function testInvitingAnaEmailsHerALinkToJoin(): void
+    {
+        $this->signIn('sarah@gr8rstudio.com');
+
+        $this->invite();
+
+        self::assertEmailCount(1);
+        $email = self::getMailerMessage();
+        \assert($email instanceof Email);
+        self::assertSame('ana@gr8rstudio.com', $email->getTo()[0]->getAddress());
+        self::assertSame('Sarah Chen invited you to Gr8r Studio', $email->getSubject());
+        self::assertMatchesRegularExpression(self::LINK, (string) $email->getTextBody());
+    }
+
+    /** The invite and a change Sarah may not make go out in one save: neither is kept, nobody is emailed. */
+    public function testARefusedSaveEmailsNobody(): void
+    {
+        $this->signIn('sarah@gr8rstudio.com');
+        $owner = array_column($this->getJson('/api/bootstrap')['data']['members'], null, 'id')['m1'];
+
+        $this->postJson('/api/sync', ['ops' => [
+            ['op' => 'put', 'type' => 'members', 'id' => 'mq7x2', 'data' => self::invited()],
+            ['op' => 'put', 'type' => 'members', 'id' => 'm1', 'data' => [...$owner, 'role' => 'Admin']],
+        ]]);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertEmailCount(0);
+    }
+
+    public function testAnaAcceptsHerInviteAndIsSignedInAsTheNewMember(): void
+    {
+        $this->signIn('sarah@gr8rstudio.com');
+        $this->invite();
+        $token = $this->token();
+        $this->client->request('POST', '/api/logout');
+
+        $body = $this->accept($token, 'Ana Lopez', 'ana-password-1');
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame(['user' => ['email' => 'ana@gr8rstudio.com', 'name' => 'Ana Lopez'], 'member' => 'mq7x2'], $body);
+        self::assertSame($body, $this->getJson('/api/me'));
+        $ana = $this->member('mq7x2');
+        self::assertSame(['Ana Lopez', 'active', 'Member', 'design'], [$ana['name'], $ana['status'], $ana['role'], $ana['team']]);
+        $this->client->request('POST', '/api/logout');
+        self::assertSame('mq7x2', $this->signIn('ana@gr8rstudio.com', 'ana-password-1')['member']);
+    }
+
+    public function testTheLinkWorksOnce(): void
+    {
+        $this->signIn('sarah@gr8rstudio.com');
+        $this->invite();
+        $token = $this->token();
+        $this->accept($token, 'Ana Lopez', 'ana-password-1');
+        $this->client->request('POST', '/api/logout');
+
+        $body = $this->accept($token, 'Someone Else', 'other-password-2');
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame(['error' => 'not_found', 'message' => 'This invite link is not valid any more. It may have been used already or replaced by a newer one.'], $body);
+        $this->getJson('/api/me');
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    public function testALinkAfterAWeekHasExpired(): void
+    {
+        $this->signIn('sarah@gr8rstudio.com');
+        $this->invite();
+        $token = $this->token();
+        $this->client->request('POST', '/api/logout');
+        self::mockTime(new \DateTimeImmutable('2026-10-24 12:00:01', new \DateTimeZone('UTC')));
+
+        $body = $this->accept($token, 'Ana Lopez', 'ana-password-1');
+
+        self::assertResponseStatusCodeSame(410);
+        self::assertSame(['error' => 'expired', 'message' => 'This invite has expired. Ask an Owner or Admin of the Workspace to send you a new one.'], $body);
+        $this->getJson('/api/me');
+        self::assertResponseStatusCodeSame(401);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function weakPasswords(): iterable
+    {
+        yield 'under 10 characters' => ['short-1'];
+        yield 'letters only' => ['longpassword'];
+        yield 'an underscore is no symbol' => ['under_score_x'];
+    }
+
+    /** As the app asks: at least 10 characters, including a number or symbol. */
+    #[\PHPUnit\Framework\Attributes\DataProvider('weakPasswords')]
+    public function testAWeakPasswordIsRefusedAndTheLinkStillWorks(string $password): void
+    {
+        $this->signIn('sarah@gr8rstudio.com');
+        $this->invite();
+        $token = $this->token();
+        $this->client->request('POST', '/api/logout');
+
+        $body = $this->accept($token, 'Ana Lopez', $password);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['error' => 'invalid', 'message' => 'Use at least 10 characters, including a number or symbol.'], $body);
+        self::assertSame('mq7x2', $this->accept($token, 'Ana Lopez', 'ana-password-1')['member']);
+    }
+
+    public function testAcceptingWithoutANameIsRefused(): void
+    {
+        $this->signIn('sarah@gr8rstudio.com');
+        $this->invite();
+        $token = $this->token();
+        $this->client->request('POST', '/api/logout');
+
+        $body = $this->accept($token, ' ', 'ana-password-1');
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['error' => 'invalid', 'message' => 'Enter your name.'], $body);
+    }
+
+    public function testAcceptingWhileSignedInAsSomeoneElseSignsInAsTheNewMember(): void
+    {
+        $this->signIn('sarah@gr8rstudio.com');
+        $this->invite();
+        $token = $this->token();
+
+        $this->accept($token, 'Ana Lopez', 'ana-password-1');
+
+        self::assertSame(['user' => ['email' => 'ana@gr8rstudio.com', 'name' => 'Ana Lopez'], 'member' => 'mq7x2'], $this->getJson('/api/me'));
+    }
+
+    /**
+     * @param array<string, mixed> $changes
+     *
+     * @return array<mixed>
+     */
+    private function invite(string $id = 'mq7x2', array $changes = []): array
+    {
+        return $this->postJson('/api/sync', ['ops' => [['op' => 'put', 'type' => 'members', 'id' => $id, 'data' => self::invited($id, $changes)]]]);
+    }
+
+    /** The token in the link of the last email sent; the mails of a request are gone after the next one. */
+    private function token(): string
+    {
+        $email = self::getMailerMessage();
+        \assert($email instanceof Email);
+        self::assertMatchesRegularExpression(self::LINK, (string) $email->getTextBody());
+        preg_match(self::LINK, (string) $email->getTextBody(), $match);
+
+        return $match[1];
+    }
+
+    /** @return array<mixed> */
+    private function accept(string $token, string $name, string $password): array
+    {
+        return $this->postJson('/api/invites/'.$token.'/accept', ['name' => $name, 'password' => $password]);
+    }
+
+    /** @return array<string, mixed>|null the Member as /api/bootstrap shows it */
+    private function member(string $id): ?array
+    {
+        return array_column($this->getJson('/api/bootstrap')['data']['members'], null, 'id')[$id] ?? null;
+    }
+
+    /**
+     * @param array<string, mixed> $changes
+     *
+     * @return array<string, mixed>
+     */
+    private static function invited(string $id = 'mq7x2', array $changes = []): array
+    {
+        return [
+            'id' => $id, 'name' => 'Ana', 'email' => 'ana@gr8rstudio.com', 'role' => 'Member', 'team' => 'design', 'title' => 'Member',
+            'c' => '#6B7280', 'status' => 'invited', 'last' => null, 'tz' => '—', ...$changes,
+        ];
+    }
+}

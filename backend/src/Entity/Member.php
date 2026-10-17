@@ -64,6 +64,16 @@ class Member
         return 'Guest' === $this->role;
     }
 
+    public function getName(): string
+    {
+        return $this->name;
+    }
+
+    public function getEmail(): string
+    {
+        return $this->email;
+    }
+
     public function getUser(): ?User
     {
         return $this->user;
@@ -90,6 +100,15 @@ class Member
         $this->c = $changes['c'];
         $this->role = $changes['role'];
         $this->team = $changes['team'];
+    }
+
+    /** The invited Member accepted their Invite as this User, under this name: they are active from now on. */
+    public function join(User $user, string $name): void
+    {
+        $this->user = $user;
+        $this->name = $name;
+        $this->status = 'active';
+        $this->last = 0;
     }
 
     /** A deleted Team leaves its people and Projects without one (''). */

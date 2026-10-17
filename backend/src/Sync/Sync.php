@@ -3,6 +3,7 @@
 namespace App\Sync;
 
 use App\Entity\Member;
+use App\Persistence\Transaction;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
@@ -10,7 +11,9 @@ use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 /**
  * Applies a batch of writes from the frontend for one Member, all in one transaction: an
  * ordered list of `put` and `delete` ops on collections (CollectionHandler) and `set` ops on
- * singletons (SingletonHandler). Either every op is applied or, when one is refused, none is.
+ * singletons (SingletonHandler). Either every op is applied or, when one is refused, none is;
+ * what handlers defer until the commit (Transaction::afterCommit(), like Invite emails) runs only
+ * when every op was applied.
  */
 final readonly class Sync
 {
@@ -26,6 +29,7 @@ final readonly class Sync
      */
     public function __construct(
         private EntityManagerInterface $em,
+        private Transaction $transaction,
         #[AutowireIterator(CollectionHandler::class)]
         iterable $collections,
         #[AutowireIterator(SingletonHandler::class)]
@@ -49,7 +53,7 @@ final readonly class Sync
      */
     public function apply(Member $actor, array $ops): array
     {
-        return $this->em->wrapInTransaction(function () use ($actor, $ops): array {
+        return $this->transaction->run(function () use ($actor, $ops): array {
             $reply = [];
             foreach ($ops as $index => $op) {
                 try {
