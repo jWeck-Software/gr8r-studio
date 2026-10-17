@@ -98,6 +98,14 @@ class Project
         return $this->members;
     }
 
+    /** A deleted Team leaves its people and Projects without one (''). */
+    public function leaveTeam(string $teamId): void
+    {
+        if ($this->team === $teamId) {
+            $this->team = '';
+        }
+    }
+
     /** A Member who leaves the Workspace leaves the Project: they are no longer in it nor its lead. */
     public function dropMember(string $memberId): void
     {

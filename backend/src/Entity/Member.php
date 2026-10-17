@@ -88,6 +88,14 @@ class Member
         $this->team = $changes['team'];
     }
 
+    /** A deleted Team leaves its people and Projects without one (''). */
+    public function leaveTeam(string $teamId): void
+    {
+        if ($this->team === $teamId) {
+            $this->team = '';
+        }
+    }
+
     /** Stars or unstars a record of a collection, such as a Project in "projects", for this Member only. */
     public function star(string $collection, string $id, bool $starred): void
     {
