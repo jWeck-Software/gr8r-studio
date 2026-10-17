@@ -308,7 +308,7 @@ final class InvitesTest extends ApiTestCase
         $acme = new Workspace('Acme Labs', 'acme', '#3B82C4', false, []);
         $ada = new User('ada@acme.test', 'Ada Byron');
         $ada->setPassword($hasher->hashPassword($ada, 'acme-password'));
-        foreach ([$acme, $ada, Member::joined('mac1', $acme, $ada, Role::Owner, '', 'Founder', '#3B82C4', 0, 'London')] as $entity) {
+        foreach ([$acme, $ada, Member::joined('mac1', $acme, $ada, Role::Owner, '', 'Founder', '#3B82C4', self::nowMs(), 'London')] as $entity) {
             $em->persist($entity);
         }
         $em->flush();

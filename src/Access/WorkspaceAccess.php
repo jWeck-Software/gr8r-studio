@@ -67,7 +67,7 @@ final readonly class WorkspaceAccess
      */
     public function whyNotChange(Member $actor, Member $member, array $changes): ?string
     {
-        $stored = [...$member->toRecord(), 'role' => $member->getRole()];
+        $stored = $member->changeable();
         $changed = array_keys(array_filter($changes, static fn (string|Role $value, string $field): bool => $stored[$field] !== $value, \ARRAY_FILTER_USE_BOTH));
         if ([] !== array_intersect($changed, ['name', 'title', 'c']) && $actor !== $member) {
             return 'Only the Member themselves changes their name, title and avatar colour.';

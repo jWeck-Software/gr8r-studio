@@ -48,12 +48,13 @@ final readonly class Snapshot
         $attachments = self::attachments($files);
         $tasks = self::withFavorites($member, 'tasks', array_map(static fn (Task $t): array => [...$t->toRecord(), 'attachments' => $attachments[$t->getId()] ?? []], $visibleTasks));
         $seqs = self::keySequences($tasks);
+        $now = $this->clock->now();
 
         return [
             'data' => [
                 'ws' => ['name' => $ws->getName(), 'url' => $ws->getUrl(), 'c' => $ws->getC(), 'brand' => $ws->isBrand()],
                 'me' => $member->getId(),
-                'members' => array_map(static fn (Member $m): array => $m->toRecord(), $members),
+                'members' => array_map(static fn (Member $m): array => $m->toRecord($now), $members),
                 'projects' => self::inCreationOrder(self::withFavorites($member, 'projects', array_map(static fn (Project $p): array => [...$p->toRecord(), 'seq' => $seqs[$p->getId()] ?? TaskKeys::FIRST_SEQ], $projects))),
                 'tasks' => self::inCreationOrder($tasks),
                 'projOrder' => array_values(array_intersect($ws->getProjOrder(), $visible)),

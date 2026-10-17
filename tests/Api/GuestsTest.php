@@ -269,7 +269,7 @@ final class GuestsTest extends ApiTestCase
         $user = new User(self::GUEST_EMAIL, 'Gale Guest');
         $user->setPassword($hasher->hashPassword($user, 'guest-password'));
         $em->persist($user);
-        $em->persist(Member::joined('mg1', $ws, $user, Role::Guest, 'mkt', 'Freelance Designer', '#C0612B', 0, 'Lisbon'));
+        $em->persist(Member::joined('mg1', $ws, $user, Role::Guest, 'mkt', 'Freelance Designer', '#C0612B', self::nowMs(), 'Lisbon'));
         $em->flush();
         $em->clear();
     }

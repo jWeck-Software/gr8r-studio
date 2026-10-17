@@ -14,6 +14,7 @@ use App\Token\Purpose;
 use App\Token\Tokens;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Clock\ClockInterface;
 
 /**
  * A User's own Workspace: starting one as its Owner, and deleting it with everything in it.
@@ -27,6 +28,7 @@ final class Workspaces
         private readonly WorkspaceAccess $access,
         private readonly Tokens $tokens,
         private readonly Files $files,
+        private readonly ClockInterface $clock,
     ) {
     }
 
@@ -56,7 +58,7 @@ final class Workspaces
                 throw AccountRefused::urlTaken($url);
             }
             $ws = new Workspace($name, $url, $c);
-            $owner = Member::owner(self::newId('m'), $ws, $user);
+            $owner = Member::owner(self::newId('m'), $ws, $user, $this->clock->now());
             $owner->keepPersonal('notifPrefs', WorkspaceDefaults::NOTIF_PREFS);
             $this->em->persist($ws);
             $this->em->persist($owner);

@@ -45,8 +45,9 @@ class Member
         private string $c,
         #[ORM\Column(length: 20, enumType: MemberStatus::class)]
         private MemberStatus $status,
-        #[ORM\Column(nullable: true)]
-        private ?int $last,
+        /** Epoch milliseconds of the Member's last signed-in request; null until they first sign in. */
+        #[ORM\Column(type: Types::BIGINT, nullable: true)]
+        private ?int $lastActiveAt,
         #[ORM\Column(length: 80)]
         private string $tz,
         #[ORM\ManyToOne]
@@ -56,15 +57,19 @@ class Member
     }
 
     /** The User who starts a Workspace, as its first Owner: no Team or title yet, active from now on. */
-    public static function owner(string $id, Workspace $workspace, User $user): self
+    public static function owner(string $id, Workspace $workspace, User $user, \DateTimeImmutable $now): self
     {
-        return self::joined($id, $workspace, $user, Role::Owner, '', '', '#5A67D8', 0, '—');
+        return self::joined($id, $workspace, $user, Role::Owner, '', '', '#5A67D8', self::ms($now), '—');
     }
 
-    /** A Member who has joined the Workspace and signs in as this User, under the User's name and email address. */
-    public static function joined(string $id, Workspace $workspace, User $user, Role $role, string $team, string $title, string $c, int $last, string $tz): self
+    /**
+     * A Member who has joined the Workspace and signs in as this User, under the User's name and email address.
+     *
+     * @param int $lastActiveAt epoch milliseconds of their last signed-in request
+     */
+    public static function joined(string $id, Workspace $workspace, User $user, Role $role, string $team, string $title, string $c, int $lastActiveAt, string $tz): self
     {
-        return new self($id, $workspace, $user->getName(), $user->getEmail(), $role, $team, $title, $c, MemberStatus::Active, $last, $tz, $user);
+        return new self($id, $workspace, $user->getName(), $user->getEmail(), $role, $team, $title, $c, MemberStatus::Active, $lastActiveAt, $tz, $user);
     }
 
     /** Someone invited by email: no User and no last activity until they accept the Invite (join()). */
@@ -140,12 +145,39 @@ class Member
     }
 
     /** The invited Member accepted their Invite as this User, under this name: they are active from now on. */
-    public function join(User $user, string $name): void
+    public function join(User $user, string $name, \DateTimeImmutable $now): void
     {
         $this->user = $user;
         $this->name = $name;
         $this->status = MemberStatus::Active;
-        $this->last = 0;
+        $this->lastActiveAt = self::ms($now);
+    }
+
+    /**
+     * The Member made a signed-in request now. Kept at most once a minute, so that not every request
+     * writes; `last` counts whole minutes anyway.
+     *
+     * @return bool whether the moment changed and needs storing
+     */
+    public function seen(\DateTimeImmutable $now): bool
+    {
+        $at = self::ms($now);
+        if (null !== $this->lastActiveAt && $at - $this->lastActiveAt < 60_000) {
+            return false;
+        }
+        $this->lastActiveAt = $at;
+
+        return true;
+    }
+
+    /**
+     * What a Member's put may change, as stored, in the shape update() takes.
+     *
+     * @return array{name: string, title: string, c: string, role: Role, team: string}
+     */
+    public function changeable(): array
+    {
+        return ['name' => $this->name, 'title' => $this->title, 'c' => $this->c, 'role' => $this->role, 'team' => $this->team];
     }
 
     /** A deleted Team leaves its people and Projects without one (''). */
@@ -184,8 +216,11 @@ class Member
         return $this->personal[$type] ?? null;
     }
 
-    /** @return array<string, mixed> the Member in the frontend's shape */
-    public function toRecord(): array
+    /**
+     * @return array<string, mixed> the Member in the frontend's shape, `last` as whole minutes between
+     *                              their last signed-in request and now (null when they never signed in)
+     */
+    public function toRecord(\DateTimeImmutable $now): array
     {
         return [
             'id' => $this->id,
@@ -196,8 +231,13 @@ class Member
             'title' => $this->title,
             'c' => $this->c,
             'status' => $this->status->value,
-            'last' => $this->last,
+            'last' => null === $this->lastActiveAt ? null : intdiv(max(0, self::ms($now) - $this->lastActiveAt), 60_000),
             'tz' => $this->tz,
         ];
+    }
+
+    private static function ms(\DateTimeImmutable $moment): int
+    {
+        return (int) $moment->format('Uv');
     }
 }

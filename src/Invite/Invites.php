@@ -13,6 +13,7 @@ use App\Token\Purpose;
 use App\Token\TokenRefused;
 use App\Token\Tokens;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Clock\ClockInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -30,6 +31,7 @@ final readonly class Invites
         private UserPasswordHasherInterface $hasher,
         private MemberRepository $members,
         private WorkspaceAccess $access,
+        private ClockInterface $clock,
     ) {
     }
 
@@ -112,7 +114,7 @@ final readonly class Invites
                 throw $refused->expired ? InviteRefused::expired() : InviteRefused::unknown();
             }
             $user = $this->user($member->getEmail(), $name, $password);
-            $member->join($user, $name);
+            $member->join($user, $name, $this->clock->now());
             $this->em->flush();
 
             return $user;

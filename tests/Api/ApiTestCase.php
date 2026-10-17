@@ -5,6 +5,7 @@ namespace App\Tests\Api;
 use App\Demo\DemoSeed;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\Clock\Clock;
 use Symfony\Component\Clock\Test\ClockSensitiveTrait;
 
 /**
@@ -64,6 +65,12 @@ abstract class ApiTestCase extends WebTestCase
         }
 
         return $path;
+    }
+
+    /** Epoch milliseconds of the mocked now. */
+    protected static function nowMs(): int
+    {
+        return (int) Clock::get()->now()->format('Uv');
     }
 
     /** @return array<mixed> */

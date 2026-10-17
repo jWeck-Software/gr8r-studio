@@ -111,7 +111,7 @@ final class DemoSeed
             $user = new User($email, $name);
             $user->setPassword($this->hasher->hashPassword($user, self::PASSWORD));
             $this->em->persist($user);
-            $members[$id] = Member::joined($id, $ws, $user, $role, $team, $title, $c, $last, $tz);
+            $members[$id] = Member::joined($id, $ws, $user, $role, $team, $title, $c, $this->minsAgo($last), $tz);
         }
         $members['m8'] = Member::invited('m8', $ws, 'Diego Alvarez', 'diego@freelance.io', Role::Guest, 'mkt', 'Freelance Copywriter', '#C0612B', 'Madrid');
         foreach ($members as $member) {

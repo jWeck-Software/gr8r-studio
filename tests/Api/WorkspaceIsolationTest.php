@@ -162,7 +162,7 @@ final class WorkspaceIsolationTest extends ApiTestCase
         $ws = new Workspace('Acme Labs', 'acme', '#3B82C4', false, ['pac1']);
         $user = new User('ada@acme.test', 'Ada Byron');
         $user->setPassword($hasher->hashPassword($user, 'acme-password'));
-        $member = Member::joined('mac1', $ws, $user, Role::Owner, '', 'Founder', '#3B82C4', 0, 'London');
+        $member = Member::joined('mac1', $ws, $user, Role::Owner, '', 'Founder', '#3B82C4', self::nowMs(), 'London');
         $project = new Project('pac1', $ws);
         $project->update([
             'key' => 'ACME', 'name' => 'Rocket Skates', 'icon' => 'rocket', 'color' => 'blue', 'status' => 'active', 'team' => '',

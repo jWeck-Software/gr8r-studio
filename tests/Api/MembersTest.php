@@ -197,7 +197,7 @@ final class MembersTest extends ApiTestCase
         $this->signIn('john@gr8rstudio.com');
         $before = $this->member('m3');
 
-        $body = $this->putMember('m3', ['email' => 'boss@gr8rstudio.com', 'status' => 'invited', 'last' => 0, 'tz' => 'Paris']);
+        $body = $this->putMember('m3', ['email' => 'boss@gr8rstudio.com', 'status' => 'invited', 'last' => 999, 'tz' => 'Paris']);
 
         self::assertSame(['ok' => true], $body);
         self::assertSame($before, $this->member('m3'));
