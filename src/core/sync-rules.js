@@ -11,12 +11,12 @@ export function mergeSnapshot(local, server, types) {
 
 /** Whether a refresh now would throw away something the user is in the middle of. `render()` keeps the
    route, the drawer, the selection, scroll, focus and comment drafts (S.ui.drafts), but not text that
-   lives only in a field of the page, an open overlay's half-made choice, or a drag. While an undo toast
+   lives only in a field of the page, an open overlay's half-made choice, or a drag (S.ui.drag). While an undo toast
    is open (S.ui.undos), undo would put back a copy of S.data from before the refresh and so undo
    teammates' changes as well.
    `typing`: the focused field has been typed into, 'draft' for a comment draft, 'field' for any other. */
-export function midEdit(ui, { typing = null, dragging = false } = {}) {
-  return !!(ui.editCell || ui.composer || ui.modals.length || ui.pop || ui.palette || ui.auth || ui.undos > 0 || dragging || typing === 'field');
+export function midEdit(ui, { typing = null } = {}) {
+  return !!(ui.editCell || ui.composer || ui.modals.length || ui.pop || ui.palette || ui.auth || ui.undos > 0 || ui.drag || typing === 'field');
 }
 
 /** What a sign-in does with the changes left over from a session that ended (`leftover`: the Member they were made by, or null). */

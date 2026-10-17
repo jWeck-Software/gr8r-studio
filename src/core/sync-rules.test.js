@@ -40,6 +40,7 @@ const resting = {
   palette: null,
   auth: null,
   undos: 0,
+  drag: null,
 };
 
 test('an open drawer, a selection and a comment draft do not hold a refresh back: render keeps them', () => {
@@ -56,7 +57,7 @@ test('a popover, the command palette, the login screen or a drag in progress hol
   assert.equal(midEdit({ ...resting, pop: { type: 'assignee', id: 't1' } }), true);
   assert.equal(midEdit({ ...resting, palette: { q: '' } }), true);
   assert.equal(midEdit({ ...resting, auth: 'login' }), true);
-  assert.equal(midEdit(resting, { dragging: true }), true);
+  assert.equal(midEdit({ ...resting, drag: { type: 'card', id: 't1' } }), true);
 });
 
 test('an open undo toast holds a refresh back: undo puts back a copy of S.data from before the refresh', () => {

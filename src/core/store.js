@@ -84,12 +84,19 @@ export const S = {
     errors: {},
     drafts: {},
     undos: 0, // undo toasts open now (ui/toast.js)
+    drag: null, // the card, row, calendar Task or sidebar Project being dragged (actions/drag-drop.js)
   },
 };
 export let _saveT;
 let afterSave = null;
 /* Backend mode's sync module registers here when it loads; it runs on every debounced save. */
 export const onSave = fn => (afterSave = fn);
+/* Backend mode's sync module hands over its sign-in and sign-out here when it loads, so the actions
+   reach them without importing it: the sync module imports the shell, which imports the actions. */
+const account = {};
+export const onSession = calls => Object.assign(account, calls);
+export const signIn = (email, password) => account.signIn(email, password);
+export const signOut = () => account.signOut();
 export function save() {
   clearTimeout(_saveT);
   _saveT = setTimeout(() => {

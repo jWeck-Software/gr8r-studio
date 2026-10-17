@@ -1,7 +1,7 @@
 /* =====================================================================
    SYNC (backend mode): the signed-in session and the Workspace on the server.
-   Callers need three calls: resumeSession() at boot, signIn() from the login form,
-   signOut(). Everything else happens on its own: every debounced save() diffs the synced
+   Callers need three calls: resumeSession() at boot, and signIn() from the login form and
+   signOut(), which reach this module through store.js (onSession). Everything else happens on its own: every debounced save() diffs the synced
    collections against the copy the server last confirmed and posts the ops, one request at
    a time. A refused batch (403/422) reloads the Workspace and says why; a failed request
    (offline, 5xx) keeps the changes pending and retries on the next save or when the browser
@@ -17,10 +17,9 @@
 import { BACKEND, api } from '../core/api.js';
 import { diffData } from '../core/diff.js';
 import { afterSignIn, midEdit, mergeSnapshot } from '../core/sync-rules.js';
-import { S, me, onSave, task } from '../core/store.js';
+import { S, me, onSave, onSession, task } from '../core/store.js';
 import { toast } from '../ui/toast.js';
 import { render } from '../shell/render.js';
-import { DRAG } from './drag-drop.js';
 
 /* Collections and singletons written through /api/sync, in the order the server applies them:
    Projects before the Tasks and the Project order that refer to them, Tasks before the Comments
@@ -57,7 +56,7 @@ export async function resumeSession() {
 }
 
 /** Signs in and loads the Workspace. Rejects with an ApiError whose message can be shown as is. */
-export async function signIn(email, password) {
+async function signIn(email, password) {
   await signingOut;
   const { member } = await api.login(email, password);
   const was = leftover;
@@ -70,7 +69,7 @@ export async function signIn(email, password) {
 }
 
 /** Sends what is still pending, then ends the session on the server. */
-export function signOut() {
+function signOut() {
   unwatch();
   signingOut = (async () => {
     await settle();
@@ -135,7 +134,7 @@ function noteTyping(e) {
 function stillEditing() {
   const a = document.activeElement;
   const typing = a && a === typedIn ? (a.dataset?.in === 'draft' ? 'draft' : 'field') : null;
-  return midEdit(S.ui, { typing, dragging: !!DRAG });
+  return midEdit(S.ui, { typing });
 }
 
 function refreshIfIdle() {
@@ -266,5 +265,6 @@ function sessionEnded() {
 
 if (BACKEND) {
   onSave(push);
+  onSession({ signIn, signOut });
   addEventListener('online', push);
 }

@@ -7,7 +7,6 @@ import { fxSet, render } from '../shell/render.js';
 import { viewOf } from '../shell/view-engine.js';
 import { applyPatch, handleFiles, updateTask } from './actions.js';
 
-export let DRAG = null;
 export function clearDropMarks() {
   $$('.drop-line').forEach(x => x.remove());
   $$('.over').forEach(x => x.classList.remove('over'));
@@ -21,7 +20,7 @@ document.addEventListener('dragstart', e => {
     sp = e.target.closest?.('[data-drag-proj]');
   const el = card || row || cal || sp;
   if (!el) return;
-  DRAG = card
+  S.ui.drag = card
     ? { type: 'card', id: card.dataset.dragCard }
     : row
       ? { type: 'row', id: row.dataset.dragRow }
@@ -30,7 +29,7 @@ document.addEventListener('dragstart', e => {
         : { type: 'proj', id: sp.dataset.dragProj };
   e.dataTransfer.effectAllowed = 'move';
   try {
-    e.dataTransfer.setData('text/plain', DRAG.id);
+    e.dataTransfer.setData('text/plain', S.ui.drag.id);
   } catch {
     /* not supported here; safe to skip */
   }
@@ -45,7 +44,7 @@ document.addEventListener('dragstart', e => {
   setTimeout(() => vis.classList.add('dragging'), 0);
 });
 document.addEventListener('dragend', () => {
-  DRAG = null;
+  S.ui.drag = null;
   clearDropMarks();
 });
 document.addEventListener('dragover', e => {
@@ -59,8 +58,8 @@ document.addEventListener('dragover', e => {
     }
     return;
   }
-  if (!DRAG) return;
-  if (DRAG.type === 'card') {
+  if (!S.ui.drag) return;
+  if (S.ui.drag.type === 'card') {
     const col = e.target.closest('[data-drop-col]');
     if (!col) return;
     e.preventDefault();
@@ -80,34 +79,34 @@ document.addEventListener('dragover', e => {
     }
     const ref = after || body.querySelector('.addcard, .composer');
     if (line.nextSibling !== ref || line.parentNode !== body) body.insertBefore(line, ref);
-    DRAG.col = col.dataset.dropCol;
-    DRAG.before = after ? after.dataset.dragCard : null;
-  } else if (DRAG.type === 'row') {
+    S.ui.drag.col = col.dataset.dropCol;
+    S.ui.drag.before = after ? after.dataset.dragCard : null;
+  } else if (S.ui.drag.type === 'row') {
     const row = e.target.closest('.trow[data-task-row]');
-    if (!row || row.dataset.taskRow === DRAG.id) return;
+    if (!row || row.dataset.taskRow === S.ui.drag.id) return;
     e.preventDefault();
     const r = row.getBoundingClientRect();
     const before = e.clientY < r.top + r.height / 2;
     $$('.drop-before,.drop-after').forEach(x => x.classList.remove('drop-before', 'drop-after'));
     row.classList.add(before ? 'drop-before' : 'drop-after');
-    DRAG.target = row.dataset.taskRow;
-    DRAG.pos = before ? 'before' : 'after';
-    DRAG.group = row.dataset.group;
-    DRAG.lkey = row.dataset.lkey;
-  } else if (DRAG.type === 'cal') {
+    S.ui.drag.target = row.dataset.taskRow;
+    S.ui.drag.pos = before ? 'before' : 'after';
+    S.ui.drag.group = row.dataset.group;
+    S.ui.drag.lkey = row.dataset.lkey;
+  } else if (S.ui.drag.type === 'cal') {
     const day = e.target.closest('[data-drop-day]');
     if (!day) return;
     e.preventDefault();
     $$('.over').forEach(x => x !== day && x.classList.remove('over'));
     day.classList.add('over');
-    DRAG.day = day.dataset.dropDay;
-  } else if (DRAG.type === 'proj') {
+    S.ui.drag.day = day.dataset.dropDay;
+  } else if (S.ui.drag.type === 'proj') {
     const it = e.target.closest('[data-proj-drop]');
     if (!it) return;
     e.preventDefault();
     $$('.drop-before').forEach(x => x.classList.remove('drop-before'));
     it.querySelector('.sitem')?.classList.add('drop-before');
-    DRAG.before = it.dataset.projDrop;
+    S.ui.drag.before = it.dataset.projDrop;
   }
 });
 document.addEventListener('dragleave', e => {
@@ -116,7 +115,7 @@ document.addEventListener('dragleave', e => {
 });
 document.addEventListener('drop', e => {
   const files = e.dataTransfer?.files;
-  if (files && files.length && !DRAG) {
+  if (files && files.length && !S.ui.drag) {
     const dz = e.target.closest?.('[data-dropzone],[data-dropzone-task],.drawer');
     if (!dz) return;
     e.preventDefault();
@@ -128,10 +127,10 @@ document.addEventListener('drop', e => {
     }
     return;
   }
-  if (!DRAG) return;
+  if (!S.ui.drag) return;
   e.preventDefault();
-  const d = DRAG;
-  DRAG = null;
+  const d = S.ui.drag;
+  S.ui.drag = null;
   clearDropMarks();
   if (d.type === 'card' && d.col) {
     const t = task(d.id);
