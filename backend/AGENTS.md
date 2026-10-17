@@ -80,6 +80,7 @@ Where this backend knowingly departs from the conventions above, and why:
 - **The password policy is `App\Security\PasswordPolicy`, not a Validator constraint.** Accepting an
   Invite applies it only when a new User is created; when the address has a User already, that
   User's current password is checked instead, which a constraint on the request DTO can't tell apart.
+  Signing up (`App\Account\Accounts`) calls the same policy, so both say it in the same words.
 - **Routes never name a placeholder `{id}`: `{invited}`, `{file}` and so on.** Doctrine's entity
   value resolver maps an `{id}` placeholder onto a `Member $member` argument before
   `CurrentMemberResolver` runs, so the signed-in actor would become whatever the id names

@@ -2387,6 +2387,7 @@ IN.onbWs = el => {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
   if (S.ui.errors.ws && el.value.trim()) S.ui.errors.ws = null;
+  if (!o.urlTouched) S.ui.errors.url = null;
   render();
 };
 IN.onbUrl = el => {
