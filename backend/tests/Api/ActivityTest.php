@@ -3,7 +3,7 @@
 namespace App\Tests\Api;
 
 /**
- * The Activity feed: the client logs an entry for each change it makes (ADR 0003), the server
+ * Activity: the client logs an entry for each change it makes (ADR 0003), the server
  * keeps it as the signed-in Member's and never changes or drops it.
  */
 final class ActivityTest extends ApiTestCase

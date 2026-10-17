@@ -164,7 +164,7 @@ final readonly class Snapshot
     }
 
     /**
-     * Account features that stay demo data in the UI (workspace switcher, sessions, billing,
+     * Features that stay demo data in the UI (workspace switcher, sessions, billing,
      * two-factor auth). They are never synced.
      *
      * @return array<string, mixed>

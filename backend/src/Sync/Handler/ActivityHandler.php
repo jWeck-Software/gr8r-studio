@@ -13,8 +13,9 @@ use App\Sync\SyncRejected;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
- * The Activity feed. The client logs its own changes (ADR 0003); the server keeps each entry as
- * the signed-in Member's, about Projects they see, and never changes or deletes it.
+ * Activity, the Workspace's record of who changed what. The client logs its own changes
+ * (ADR 0003); the server keeps each entry as the signed-in Member's, about Projects they see,
+ * and never changes or deletes it.
  */
 final readonly class ActivityHandler implements CollectionHandler
 {
