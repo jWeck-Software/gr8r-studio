@@ -42,8 +42,10 @@ collections are listed in `SYNCED` in `src/core/sync-rules.js`, so far the Works
 localStorage for now. Teammates' changes come in when the tab regains focus and every 60 s
 while it is visible (after pending changes are sent, and not while you are typing in a field or
 have a dialog open); an expired session keeps your unsynced changes and sends them once you sign
-in again as the same Member. Sign-up, social sign-in, onboarding and the demo reset are not available
-in this mode yet.
+in again as the same Member. Inviting someone emails them a link (in dev, Mailpit catches it: inbox
+on http://127.0.0.1:8025) that opens the app at `#join/<token>`, where they choose a name and a
+password and are signed in as the new Member; "Resend invite" in a Member's menu sends a fresh link.
+Sign-up, social sign-in, onboarding and the demo reset are not available in this mode yet.
 
 ## Project structure
 

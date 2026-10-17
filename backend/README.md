@@ -13,7 +13,8 @@ All commands run in `backend/`.
 ```sh
 composer install
 
-# PostgreSQL 17 on host port 5433 (container "gr8r-db")
+# PostgreSQL 17 on host port 5433 (container "gr8r-db"), and Mailpit (container "gr8r-mailpit"),
+# which catches every email the backend sends: SMTP on 1025, inbox on http://127.0.0.1:8025
 docker compose up -d --wait
 
 # Database and schema (dev)
@@ -53,17 +54,20 @@ php bin/phpunit
 
 ## Endpoints
 
-| Endpoint             | Purpose                                                                                |
-| -------------------- | -------------------------------------------------------------------------------------- |
-| `GET /api/health`    | `{"status":"ok"}`, no sign-in needed                                                   |
-| `POST /api/login`    | `{email, password}` → `{user:{email,name}, member}` + session cookie                   |
-| `POST /api/logout`   | `204`, ends the session                                                                |
-| `GET /api/me`        | same body as login, or `401`; `403 no_workspace` when the User is no Member (any more) |
-| `GET /api/bootstrap` | `{data, prefs, views}` for the signed-in Member; `403 no_workspace` as for `/api/me`   |
-| `POST /api/sync`     | `{"ops": [{op, type, id?, data?}]}` → `{"ok": true}`, `422` or `403`                   |
+| Endpoint                           | Purpose                                                                                                                                                                                                                                                                                                                   |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/health`                  | `{"status":"ok"}`, no sign-in needed                                                                                                                                                                                                                                                                                      |
+| `POST /api/login`                  | `{email, password}` → `{user:{email,name}, member}` + session cookie                                                                                                                                                                                                                                                      |
+| `POST /api/logout`                 | `204`, ends the session                                                                                                                                                                                                                                                                                                   |
+| `GET /api/me`                      | same body as login, or `401`; `403 no_workspace` when the User is no Member (any more)                                                                                                                                                                                                                                    |
+| `GET /api/bootstrap`               | `{data, prefs, views}` for the signed-in Member; `403 no_workspace` as for `/api/me`                                                                                                                                                                                                                                      |
+| `POST /api/sync`                   | `{"ops": [{op, type, id?, data?}]}` → `{"ok": true}`, `422` or `403`                                                                                                                                                                                                                                                      |
+| `GET /api/invites/{token}`         | no sign-in needed: `{email, name, workspace, account}` of an open Invite; `account` says the address has a User already; `404 not_found`, `410 expired`                                                                                                                                                                   |
+| `POST /api/invites/{token}/accept` | no sign-in needed: `{name, password}` → same body as login + session cookie; `404 not_found` (unknown, used or replaced link), `410 expired`, `422 invalid` (weak password), `401 invalid_credentials` (the address has a User and this is not its password), `409 conflict` (that User is a Member of another Workspace) |
+| `POST /api/members/{id}/invite`    | Owners and Admins send an invited Member's Invite again: `204`; `403`, `404`, `422` for a Member who joined                                                                                                                                                                                                               |
 
 Errors answer as `{"error": "<code>", "message": "…"}`; without a session every endpoint except
-health and login answers `401 {"error":"unauthenticated"}`.
+health, login and the two `/api/invites/{token}` ones answers `401 {"error":"unauthenticated"}`.
 
 ## Where things live
 
@@ -101,10 +105,24 @@ health and login answers `401 {"error":"unauthenticated"}`.
   Workspace keeps at least one Owner and nobody removes themselves. Everyone, Guests included,
   changes only their own name, title and avatar colour (`c`).
 - `src/Sync/Handler/MemberHandler.php`: a put of an id the Workspace doesn't have is an Invite: the
-  Member is stored as `invited`, without a User. Email, status, last active and time zone are the
+  Member is stored as `invited`, without a User, and is emailed a link (`src/Invite/Invites.php`).
+  A Member's new name is their User's too, so sign-in and `/api/me` show it. Email, status, last active and time zone are the
   server's; what a put sends for them is ignored. Removing a Member unassigns their Tasks and drops
   them from every Project's Members and lead; their favorites go with them, and their User stays
   without a Workspace (`403 no_workspace`).
+- `src/Invite/Invites.php`: Invites, the one place that knows their links. `send()` (from the
+  member handler) and `resend()` (`POST /api/members/{id}/invite`) issue a fresh link and email it
+  as `<APP_FRONTEND_URL>/#join/<token>`; `describe()` and `accept()` serve the two
+  `/api/invites/{token}` endpoints. A token is 32 random bytes, stored only as its SHA-256 hash,
+  single-use and valid for 7 days; a new link replaces the old one, and removing the Member removes
+  the Invite. Accepting creates the User (password policy: `src/Security/PasswordPolicy.php`, as the
+  app's) or, when the address has a User already (a removed Member's User stays), requires that
+  User's current password and keeps it; then the Member is active and the controller signs them in
+  (`Security::login()`).
+- `src/Persistence/Transaction.php`: the sync batch's transaction. Work deferred with
+  `afterCommit()`, such as the Invite email of a sync put, runs only once the batch has committed,
+  so a refused batch emails nobody. An email that cannot be sent then is logged, not an error: the
+  batch is stored, and the Admin can send the Invite again.
 - `src/Sync/Handler/TeamHandler.php`, `WorkspaceSettingsHandler.php`: Teams, and the `ws` singleton
   (name, URL slug like `gr8r-studio`, colour `#RRGGBB`). Deleting a Team leaves its Members and
   Projects without one (`team: ""`).

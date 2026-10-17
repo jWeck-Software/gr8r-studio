@@ -23,7 +23,7 @@ What a Member may do in a Workspace: Owner, Admin, Member or Guest.
 _Avoid_: permission level
 
 **Invite**:
-An offer to an email address to become a Member of a Workspace; the Member stays `invited` until it is accepted.
+An offer to an email address to become a Member of a Workspace, sent by an Owner or Admin as a link that works once and expires after a week; the Member stays `invited` until it is accepted. Sending it again replaces the link. Whoever accepts chooses their name and a password and becomes a User, or, when the address belongs to a User already, joins with that User's password.
 
 **Team**:
 A named group of Members inside a Workspace, such as Design or Engineering.
