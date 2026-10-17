@@ -2,7 +2,12 @@
 
 namespace App\Tests\Api;
 
+use App\Entity\Member;
+use App\Entity\User;
+use App\Entity\Workspace;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Mime\Email;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
  * Invites as an invited person meets them: an email with a link, and accepting it by choosing a
@@ -91,6 +96,19 @@ final class InvitesTest extends ApiTestCase
         self::assertResponseStatusCodeSame(401);
     }
 
+    public function testRemovingAnaBeforeSheJoinsMakesHerLinkInvalid(): void
+    {
+        $this->signIn('sarah@gr8rstudio.com');
+        $this->invite();
+        $token = $this->token();
+        $this->postJson('/api/sync', ['ops' => [['op' => 'delete', 'type' => 'members', 'id' => 'mq7x2']]]);
+        $this->client->request('POST', '/api/logout');
+
+        $this->accept($token, 'Ana Lopez', 'ana-password-1');
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
     /** @return iterable<string, array{string}> */
     public static function weakPasswords(): iterable
     {
@@ -140,6 +158,59 @@ final class InvitesTest extends ApiTestCase
     }
 
     /**
+     * Emma was removed, so her User has no Workspace; invited again, she joins with the password she
+     * already has instead of choosing a new one.
+     */
+    public function testEmmaRemovedAndInvitedAgainJoinsWithHerOwnPassword(): void
+    {
+        $token = $this->inviteEmmaAgain();
+
+        $body = $this->accept($token, 'Emma Wilson', self::DEMO_PASSWORD);
+
+        self::assertSame(['user' => ['email' => 'emma@gr8rstudio.com', 'name' => 'Emma Wilson'], 'member' => 'mq7x2'], $body);
+        self::assertSame('active', $this->member('mq7x2')['status']);
+        $this->client->request('POST', '/api/logout');
+        self::assertSame('mq7x2', $this->signIn('emma@gr8rstudio.com')['member']);
+    }
+
+    public function testEmmaInvitedAgainCannotJoinWithAnotherPassword(): void
+    {
+        $token = $this->inviteEmmaAgain();
+
+        $body = $this->accept($token, 'Emma Wilson', 'a-new-password-1');
+
+        self::assertResponseStatusCodeSame(401);
+        self::assertSame(['error' => 'invalid_credentials', 'message' => 'emma@gr8rstudio.com already has an account: enter its password to join.'], $body);
+        $this->getJson('/api/me');
+        self::assertResponseStatusCodeSame(401);
+        self::assertSame('mq7x2', $this->accept($token, 'Emma Wilson', self::DEMO_PASSWORD)['member']);
+    }
+
+    /** Switching between Workspaces is out of scope: one User is a Member of one Workspace. */
+    public function testAdaAMemberOfAnotherWorkspaceCannotJoinThisOneToo(): void
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
+        $acme = new Workspace('Acme Labs', 'acme', '#3B82C4', false, []);
+        $ada = new User('ada@acme.test', 'Ada Byron');
+        $ada->setPassword($hasher->hashPassword($ada, 'acme-password'));
+        foreach ([$acme, $ada, new Member('mac1', $acme, 'Ada Byron', 'ada@acme.test', 'Owner', '', 'Founder', '#3B82C4', 'active', 0, 'London', $ada)] as $entity) {
+            $em->persist($entity);
+        }
+        $em->flush();
+        $this->signIn('sarah@gr8rstudio.com');
+        $this->invite('mq7x2', ['name' => 'Ada', 'email' => 'ada@acme.test']);
+        $token = $this->token();
+        $this->client->request('POST', '/api/logout');
+
+        $body = $this->accept($token, 'Ada Byron', 'acme-password');
+
+        self::assertResponseStatusCodeSame(409);
+        self::assertSame(['error' => 'conflict', 'message' => 'ada@acme.test is a Member of another Workspace already, and an account belongs to one Workspace for now.'], $body);
+        self::assertSame('mac1', $this->signIn('ada@acme.test', 'acme-password')['member']);
+    }
+
+    /**
      * @param array<string, mixed> $changes
      *
      * @return array<mixed>
@@ -147,6 +218,20 @@ final class InvitesTest extends ApiTestCase
     private function invite(string $id = 'mq7x2', array $changes = []): array
     {
         return $this->postJson('/api/sync', ['ops' => [['op' => 'put', 'type' => 'members', 'id' => $id, 'data' => self::invited($id, $changes)]]]);
+    }
+
+    /** The Owner removes Emma, Sarah invites her again; returns the token of her link, signed out. */
+    private function inviteEmmaAgain(): string
+    {
+        $this->signIn();
+        $this->postJson('/api/sync', ['ops' => [['op' => 'delete', 'type' => 'members', 'id' => 'm4']]]);
+        $this->client->request('POST', '/api/logout');
+        $this->signIn('sarah@gr8rstudio.com');
+        $this->invite('mq7x2', ['name' => 'Emma', 'email' => 'emma@gr8rstudio.com']);
+        $token = $this->token();
+        $this->client->request('POST', '/api/logout');
+
+        return $token;
     }
 
     /** The token in the link of the last email sent; the mails of a request are gone after the next one. */

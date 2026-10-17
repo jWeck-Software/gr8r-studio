@@ -6,6 +6,7 @@ use App\Entity\Invite;
 use App\Entity\Member;
 use App\Entity\User;
 use App\Persistence\Transaction;
+use App\Repository\MemberRepository;
 use App\Security\PasswordPolicy;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -31,6 +32,7 @@ final readonly class Invites
         private Transaction $transaction,
         private LoggerInterface $logger,
         private UserPasswordHasherInterface $hasher,
+        private MemberRepository $members,
         #[Autowire('%env(APP_FRONTEND_URL)%')]
         private string $frontendUrl,
     ) {
@@ -56,6 +58,7 @@ final readonly class Invites
     /**
      * Accepts the Invite whose link holds this token: the invited person becomes a User with this
      * name and password, and their Member is active under that name. The link stops working.
+     * When their email address has a User already, the password has to be that User's; it stays.
      *
      * @throws InviteRefused when the link does not lead into the Workspace (any more)
      */
@@ -66,20 +69,44 @@ final readonly class Invites
             if ($invite->getExpiresAt() <= $this->clock->now()) {
                 throw InviteRefused::expired();
             }
-            $weak = PasswordPolicy::whyWeak($password);
-            if (null !== $weak) {
-                throw InviteRefused::weakPassword($weak);
-            }
             $member = $invite->getMember();
-            $user = new User($member->getEmail(), $name);
-            $user->setPassword($this->hasher->hashPassword($user, $password));
-            $this->em->persist($user);
+            $user = $this->user($member->getEmail(), $name, $password);
             $member->join($user, $name);
             $this->em->remove($invite);
             $this->em->flush();
 
             return $user;
         });
+    }
+
+    /**
+     * The User the invited person joins as: the one their email address has already (a removed
+     * Member's User stays), when the password is theirs and they are in no other Workspace, or
+     * else a new one with this password.
+     */
+    private function user(string $email, string $name, string $password): User
+    {
+        $user = $this->em->getRepository(User::class)->findOneBy(['email' => $email]);
+        if (null !== $user) {
+            if (!$this->hasher->isPasswordValid($user, $password)) {
+                throw InviteRefused::notTheirPassword($email);
+            }
+            if (null !== $this->members->forUser($user)) {
+                throw InviteRefused::inAnotherWorkspace($email);
+            }
+            $user->rename($name);
+
+            return $user;
+        }
+        $weak = PasswordPolicy::whyWeak($password);
+        if (null !== $weak) {
+            throw InviteRefused::weakPassword($weak);
+        }
+        $user = new User($email, $name);
+        $user->setPassword($this->hasher->hashPassword($user, $password));
+        $this->em->persist($user);
+
+        return $user;
     }
 
     /** A fresh link for the invited Member, as the email that brings it; an earlier link stops working. */

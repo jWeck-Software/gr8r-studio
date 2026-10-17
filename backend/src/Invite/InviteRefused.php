@@ -31,6 +31,18 @@ final class InviteRefused extends \RuntimeException
         return new self(422, 'invalid', $message);
     }
 
+    /** The email address has a User already, and the password given is not theirs. */
+    public static function notTheirPassword(string $email): self
+    {
+        return new self(401, 'invalid_credentials', \sprintf('%s already has an account: enter its password to join.', $email));
+    }
+
+    /** The email address's User is a Member of another Workspace; switching Workspaces is out of scope. */
+    public static function inAnotherWorkspace(string $email): self
+    {
+        return new self(409, 'conflict', \sprintf('%s is a Member of another Workspace already, and an account belongs to one Workspace for now.', $email));
+    }
+
     /** @return array{error: string, message: string} */
     public function body(): array
     {
