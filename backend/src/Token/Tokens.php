@@ -3,6 +3,7 @@
 namespace App\Token;
 
 use App\Entity\Token;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 
@@ -13,7 +14,8 @@ use Psr\Clock\ClockInterface;
  * link per purpose: issuing another replaces it. A link works until Purpose::validFor() has passed;
  * an expired one keeps answering "expired" rather than "unknown".
  *
- * Works in the caller's unit of work and transaction: nothing here flushes.
+ * Works in the caller's unit of work and transaction: nothing here flushes (redeem() deletes at
+ * once, so the caller's transaction holds the link until it commits or rolls back).
  */
 final readonly class Tokens
 {
@@ -50,16 +52,27 @@ final readonly class Tokens
     }
 
     /**
-     * Whom the link holding this token was issued for; it stops working once the caller's unit of work is flushed.
+     * Whom the link holding this token was issued for; it stops working at once, in the caller's
+     * transaction. Of two requests that redeem one link at the same time, one gets the subject and
+     * the other waits for its transaction and then finds the link used up (unknown): the row is
+     * deleted and read back in one statement, which takes its lock.
      *
      * @throws TokenRefused
      */
     public function redeem(Purpose $purpose, string $token): string
     {
-        $open = $this->open($purpose, $token);
-        $this->em->remove($open);
+        $subject = $this->em->getConnection()->fetchOne(
+            'DELETE FROM one_time_token WHERE purpose = :purpose AND hash = :hash AND expires_at > :now RETURNING subject',
+            ['purpose' => $purpose->value, 'hash' => hash('sha256', $token), 'now' => $this->clock->now()],
+            ['now' => Types::DATETIMETZ_IMMUTABLE],
+        );
+        if (false === $subject) {
+            // Expired, or unknown; open() says which.
+            $this->open($purpose, $token);
+            throw TokenRefused::unknown();
+        }
 
-        return $open->getSubject();
+        return $subject;
     }
 
     /** The subject's open link of this purpose, if any, stops working. */

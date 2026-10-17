@@ -117,10 +117,14 @@ final readonly class Invites
     public function accept(string $token, string $name, string $password): User
     {
         return $this->transaction->run(function () use ($token, $name, $password): User {
-            $member = $this->open($token);
+            // Redeemed first: a second accept of the link at the same time waits here, then finds it used.
+            try {
+                $member = $this->invited($this->tokens->redeem(Purpose::Invite, $token));
+            } catch (TokenRefused $refused) {
+                throw $refused->expired ? InviteRefused::expired() : InviteRefused::unknown();
+            }
             $user = $this->user($member->getEmail(), $name, $password);
             $member->join($user, $name);
-            $this->tokens->redeem(Purpose::Invite, $token);
             $this->em->flush();
 
             return $user;
@@ -141,6 +145,13 @@ final readonly class Invites
         } catch (TokenRefused $refused) {
             throw $refused->expired ? InviteRefused::expired() : InviteRefused::unknown();
         }
+
+        return $this->invited($id);
+    }
+
+    /** The Member with this id, as long as they are invited. */
+    private function invited(string $id): Member
+    {
         $member = $this->em->find(Member::class, $id);
         if (null === $member || !$member->isInvited()) {
             throw InviteRefused::unknown();

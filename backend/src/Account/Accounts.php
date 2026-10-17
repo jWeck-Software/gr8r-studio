@@ -12,6 +12,7 @@ use App\Security\PasswordPolicy;
 use App\Token\Purpose;
 use App\Token\TokenRefused;
 use App\Token\Tokens;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -56,6 +57,15 @@ final readonly class Accounts
             throw AccountRefused::weakPassword($weak);
         }
         $email = mb_strtolower(trim($email));
+        try {
+            $this->signUpAs($name, $email, $password);
+        } catch (UniqueConstraintViolationException) {
+            // Someone signed up with this address at the same moment and was emailed; the answer stays the same.
+        }
+    }
+
+    private function signUpAs(string $name, string $email, string $password): void
+    {
         $this->transaction->run(function () use ($name, $email, $password): void {
             $user = $this->user($email);
             // Hashed whether it is kept or not, so the answer takes as long for an address that has an account.
@@ -119,6 +129,16 @@ final readonly class Accounts
      * @throws AccountRefused when the User is a Member of a Workspace already, or the URL is taken
      */
     public function startWorkspace(User $user, string $name, string $url, string $c): Member
+    {
+        try {
+            return $this->start($user, $name, $url, $c);
+        } catch (UniqueConstraintViolationException) {
+            // Another Workspace took the URL at the same moment.
+            throw AccountRefused::urlTaken($url);
+        }
+    }
+
+    private function start(User $user, string $name, string $url, string $c): Member
     {
         return $this->transaction->run(function () use ($user, $name, $url, $c): Member {
             if (null !== $this->members->forUser($user)) {
