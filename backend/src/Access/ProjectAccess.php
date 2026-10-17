@@ -40,8 +40,9 @@ final readonly class ProjectAccess
     }
 
     /**
-     * Whether the Member may change the Project, its Tasks and the Project order; with null,
-     * whether the Member may create a Project.
+     * Whether the Member may change the Project and its Tasks; with null, whether the Member may
+     * create a Project or change the Project order. Starring is not a change: whoever sees a
+     * record may star it.
      */
     public function mayChange(Member $member, ?Project $project = null): bool
     {

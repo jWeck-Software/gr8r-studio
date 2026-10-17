@@ -45,6 +45,12 @@ final readonly class ProjectHandler implements CollectionHandler
         if (null !== $project && $project->getWorkspace() !== $ws) {
             throw SyncRejected::invalid(\sprintf('The id "%s" is already used.', $id));
         }
+        if (null !== $project && $this->access->sees($actor, $project) && self::record(new Fields($project->toRecord(), 'Project')) === $record) {
+            // Nothing but the star changed: anyone who sees the Project may star it, Guests included.
+            $actor->star('projects', $id, $fav);
+
+            return;
+        }
         $this->authorize($actor, $id, $project);
         if ($this->keyTaken($actor, $record['key'], $id)) {
             throw SyncRejected::invalid(\sprintf('The Project key %s is already used.', $record['key']));

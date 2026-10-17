@@ -28,6 +28,9 @@ final readonly class ProjectOrderHandler implements SingletonHandler
         if (!\is_array($data) || !array_is_list($data) || [] !== array_filter($data, static fn (mixed $id): bool => !\is_string($id))) {
             throw SyncRejected::invalid('The Project order must be a list of Project ids.');
         }
+        if (!$this->access->mayChange($actor)) {
+            throw SyncRejected::forbidden('You may not change the Project order.');
+        }
         $ws = $actor->getWorkspace();
         $existing = array_column($this->em->createQuery('SELECT p.id FROM '.Project::class.' p WHERE p.workspace = :ws')->setParameter('ws', $ws)->getScalarResult(), 'id');
         $visible = array_map(static fn (Project $p): string => $p->getId(), $this->access->visibleProjects($actor));
