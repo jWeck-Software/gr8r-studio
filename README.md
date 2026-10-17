@@ -37,11 +37,14 @@ origin. Sign in as `hello@gr8rstudio.com` with `gr8r-studio-demo`. The app asks 
 (and shows the login screen without a session), loads the workspace from `/api/bootstrap`, and
 every `save()` sends the changed records to `/api/sync` (`src/actions/sync.js`; the synced
 collections are listed in `SYNCED` in `src/core/sync-rules.js`, so far the Workspace's name, URL and colour `ws`,
-`teams`, `members`, `projects`, `tasks`, the sidebar's `projOrder`, `comments`, `activity`, `files` and the
-`read` flag of `notifs`). Uploads (drawer, Files view, task form, drag and drop) send the real file to
+`teams`, `members`, `projects`, `tasks`, the sidebar's `projOrder`, `comments`, `activity`, `files`, the
+`read` flag of `notifs`, `events`, `savedViews`, and the Member's own `prefs`, `views`, `notifPrefs` and
+`recentSearches`). Uploads (drawer, Files view, task form, drag and drop) send the real file to
 `/api/files`, up to 25 MB each; previews and downloads come from the server, and a Task's attachments
-are its Files. Preferences and view settings stay in
-localStorage for now. Teammates' changes come in when the tab regains focus and every 60 s
+are its Files. Preferences and view settings follow the Member to every browser; name and title
+are the Member's profile, not Preferences. When the server has none for a Member yet (their first
+sign-in in this mode), the ones this browser kept are sent, unless they belonged to another Member.
+Teammates' changes come in when the tab regains focus and every 60 s
 while it is visible (after pending changes are sent, and not while you are typing in a field or
 have a dialog open); an expired session keeps your unsynced changes and sends them once you sign
 in again as the same Member. Inviting someone emails them a link (in dev, Mailpit catches it: inbox

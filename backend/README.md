@@ -151,6 +151,19 @@ health, login and the two `/api/invites/{token}` ones answers `401 {"error":"una
   (oldest first, the File's id as the Attachment's id), not a column of the Task as the spec first
   planned; what a Task put says about them is ignored. Deleting a Task or Project deletes its Files,
   and a Task moved to another Project takes its Files along.
-- `src/Demo/DemoSeed.php`: the demo Workspace, ported from `src/data/seed.js`. Its Files get small
-  placeholder content of their type (`PlaceholderContent.php`: a PNG, a one-page PDF, an empty
+- `src/Sync/PersonalSetting.php`: the singletons that are the signed-in Member's own, one handler
+  each in `src/Sync/Handler/`: Preferences `prefs` (`PreferencesHandler`), view settings `views`
+  (`ViewSettingsHandler`), notification settings `notifPrefs` and `recentSearches`. A `set` replaces
+  the value for the actor only, Guests included, and bootstrap returns each Member theirs (`prefs` and
+  `views` at the top level, the other two in `data`); they are kept on the Member (`personal`, JSONB).
+  Each is checked for its shape and may take at most 64 KB as JSON (`422`). Preferences are plain
+  values (text up to 200 characters, numbers, booleans, null; at most 100), with `theme` and
+  `weekStart` checked; `name` and `title` are the Member record's and are dropped. Views are objects
+  by view key whose `colW` the snapshot returns as an object also when empty.
+- `src/Sync/Handler/EventHandler.php` and `SavedViewHandler.php`: Events and Saved views belong to a
+  Project. Whoever sees the Project sees them; whoever may change it (not Guests: `403`) puts and
+  deletes them; deleting a Project deletes them in the same batch (`ProjectHandler::deleteContents`).
+- `src/Demo/DemoSeed.php`: the demo Workspace, ported from `src/data/seed.js`, with its six Events and
+  its Saved view, every Member's notification settings and the Owner's recent searches. Its Files get
+  small placeholder content of their type (`PlaceholderContent.php`: a PNG, a one-page PDF, an empty
   archive, JSON or a note); their sizes are the demo's.
