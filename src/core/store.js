@@ -97,6 +97,7 @@ const account = {};
 export const onSession = calls => Object.assign(account, calls);
 export const signIn = (email, password) => account.signIn(email, password);
 export const signOut = () => account.signOut();
+export const acceptInvite = (token, name, password) => account.acceptInvite(token, name, password);
 export function save() {
   clearTimeout(_saveT);
   _saveT = setTimeout(() => {

@@ -22,6 +22,7 @@ export function renderAuth() {
   const e = S.ui.errors;
   const f = S.ui.af || (S.ui.af = { email: 'hello@gr8rstudio.com', name: '' });
   if (s === 'onboarding') return renderOnboarding();
+  if (s === 'join') return renderJoin();
   if (s === 'login')
     return authShell(
       `<form class="auth-card${S.ui.fx.auth ? ' fx-auth' : ''}" data-submit="doLogin" novalidate>
@@ -75,6 +76,29 @@ export function renderAuth() {
     <button class="btn btn-secondary btn-lg btn-block" data-a="resend" data-v="verify" id="resend-btn" ${S.ui.resendT > 0 ? 'disabled' : ''}>${S.ui.resendT > 0 ? `Resend email in <span class="num" id="resend-t">${S.ui.resendT}</span>s` : 'Resend email'}</button>
     <p class="auth-foot">Wrong email? <button class="link" data-a="auth" data-v="signup">Change it</button></p></div>`);
   return '';
+}
+
+/* The page an Invite email links to (#join/<token>, backend mode): choose a name and a password, or
+   enter the password of the account the address has already. */
+function renderJoin() {
+  const j = S.ui.join;
+  const e = S.ui.errors;
+  const fx = S.ui.fx.auth ? ' fx-auth' : '';
+  if (!j.invite)
+    return authShell(`<div class="auth-card${fx}"><div style="display:flex;justify-content:center"><span class="ftype" style="--c:var(--red);width:44px;height:44px;border-radius:11px">${ic('link-2-off', 20)}</span></div><h1>This invite link doesn't work</h1><p class="muted join-sub" style="text-align:center;margin:-8px 0 4px">${esc(j.error)}</p>
+    <button class="btn btn-primary btn-lg btn-block" data-a="leaveJoin">Go to sign in</button></div>`);
+  const { email, workspace, account } = j.invite;
+  const name = j.name ?? j.invite.name;
+  const pw = account
+    ? `<div class="field"><label class="label" for="j-pw">Password</label><input class="input input-lg ${icls('pw')}" id="j-pw" type="password" autocomplete="current-password" aria-invalid="${!!e.pw}">${ferr('pw') || `<span class="hint">${esc(email)} already has an account: enter its password.</span>`}</div>`
+    : `<div class="field"><label class="label" for="j-pw">Choose a password</label><input class="input input-lg ${icls('pw')}" id="j-pw" type="password" data-in="pwStrength" value="${esc(S.ui.pwNew || '')}" autocomplete="new-password" aria-invalid="${!!e.pw}">${strengthMeter(S.ui.pwNew || '')}${ferr('pw') || '<span class="hint">At least 10 characters with a number or symbol.</span>'}</div>`;
+  return authShell(`<form class="auth-card${fx}" data-submit="doJoin" novalidate>
+    <div style="display:flex;justify-content:center">${LOGO(30)}</div><h1>Join ${esc(workspace)}</h1><p class="muted join-sub" style="text-align:center;margin:-8px 0 4px">You were invited as <b style="color:var(--text)">${esc(email)}</b></p>
+    ${e.join ? `<div class="alert danger" role="alert">${ic('circle-alert', 15)}<span>${esc(e.join)}</span></div>` : ''}
+    <input type="email" value="${esc(email)}" autocomplete="username" hidden>
+    <div class="field"><label class="label" for="j-name">Full name</label><input class="input input-lg ${icls('name')}" id="j-name" value="${esc(name)}" autocomplete="name" aria-invalid="${!!e.name}">${ferr('name')}</div>
+    ${pw}
+    <button class="btn btn-primary btn-lg btn-block" data-a="doJoin" id="join-btn">Join workspace</button></form>`);
 }
 
 /* ---------------- ONBOARDING ---------------- */

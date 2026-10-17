@@ -37,4 +37,7 @@ export const api = {
   logout: () => call('POST', '/logout'),
   bootstrap: () => call('GET', '/bootstrap'),
   sync: ops => call('POST', '/sync', { ops }),
+  invite: token => call('GET', `/invites/${encodeURIComponent(token)}`),
+  acceptInvite: (token, name, password) => call('POST', `/invites/${encodeURIComponent(token)}/accept`, { name, password }),
+  resendInvite: memberId => call('POST', `/members/${encodeURIComponent(memberId)}/invite`),
 };

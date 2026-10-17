@@ -6,6 +6,7 @@ import { D, S, mem, pColor, proj, task, teamsList } from '../core/store.js';
 import { FT, av, filePrev, lbl, prPill, stPill } from '../ui/helpers.js';
 import { focusKey, render } from '../shell/render.js';
 import { teamModal } from '../features/teams.js';
+import { BACKEND } from '../core/api.js';
 
 export function openModal(m) {
   S.ui.modalOpeners = S.ui.modalOpeners || [];
@@ -224,7 +225,7 @@ export function inviteModal(m, H) {
       .join('')}</select></div></div>
     <div class="alert info">${ic('info', 14)}<span><b>Guests</b> can only see projects they're added to and can't create projects.</span></div>
   </form>
-  <div class="modal-f"><button class="btn btn-ghost" data-a="copyInviteLink">${ic('link', 14)}Copy invite link</button><span class="sp"></span><button class="btn btn-secondary" data-a="closeModal">Cancel</button><button class="btn btn-primary" data-a="submitInvite" id="inv-submit">Send invites</button></div>`;
+  <div class="modal-f">${BACKEND ? '' : `<button class="btn btn-ghost" data-a="copyInviteLink">${ic('link', 14)}Copy invite link</button>`}<span class="sp"></span><button class="btn btn-secondary" data-a="closeModal">Cancel</button><button class="btn btn-primary" data-a="submitInvite" id="inv-submit">Send invites</button></div>`;
 }
 export function confirmModal(m) {
   const needs = m.typeName;

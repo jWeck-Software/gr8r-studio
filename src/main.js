@@ -56,7 +56,8 @@ import './actions/subtasks.js';
 import './actions/archive.js';
 import './actions/sync.js';
 import { S, D } from './core/store.js';
-import { BACKEND } from './core/api.js';
+import { BACKEND, api } from './core/api.js';
+import { joinToken } from './core/join.js';
 import { A } from './actions/actions.js';
 import { resumeSession } from './actions/sync.js';
 import { ROUTE_NAMES, render, go } from './shell/render.js';
@@ -72,11 +73,21 @@ import { ROUTE_NAMES, render, go } from './shell/render.js';
   }
   const h = (location.hash || '').slice(1);
   const authRoutes = ['login', 'signup', 'forgot', 'reset', 'verify', 'onboarding'];
-  if (authRoutes.includes(h)) S.ui.auth = h;
+  const token = BACKEND && joinToken(location.hash);
+  S.ui.route = S.prefs.home || 'home';
+  if (token) {
+    // The link in an Invite email: the page to join shows whatever session this browser has.
+    S.ui.auth = 'join';
+    S.ui.join = { token };
+    try {
+      S.ui.join.invite = await api.invite(token);
+    } catch (e) {
+      S.ui.join.error = e.message;
+    }
+  } else if (authRoutes.includes(h)) S.ui.auth = h;
   else if (h && ROUTE_NAMES[h]) S.ui.route = h;
-  else S.ui.route = S.prefs.home || 'home';
   // Backend mode: nothing renders until the server says who is signed in, so the demo data never flashes.
-  if (BACKEND) {
+  if (BACKEND && !token) {
     try {
       if (!(await resumeSession())) S.ui.auth ||= 'login';
     } catch (e) {

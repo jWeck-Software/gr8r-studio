@@ -1,7 +1,8 @@
 /* =====================================================================
    SYNC (backend mode): the signed-in session and the Workspace on the server.
-   Callers need three calls: resumeSession() at boot, and signIn() from the login form and
-   signOut(), which reach this module through store.js (onSession). Everything else happens on its own: every debounced save() diffs the synced
+   Callers need four calls: resumeSession() at boot, and signIn() from the login form,
+   acceptInvite() from the page an Invite email links to (#join/<token>) and signOut(), which
+   reach this module through store.js (onSession). Everything else happens on its own: every debounced save() diffs the synced
    collections against the copy the server last confirmed and posts the ops, one request at
    a time. A refused batch (403/422) reloads the Workspace and says why; a failed request
    (offline, 5xx) keeps the changes pending and retries on the next save or when the browser
@@ -53,6 +54,18 @@ export async function resumeSession() {
 async function signIn(email, password) {
   await signingOut;
   const { member } = await api.login(email, password);
+  await enter(member);
+}
+
+/** Accepts an Invite, which signs in as the new Member, and loads the Workspace. Rejects like signIn(). */
+async function acceptInvite(token, name, password) {
+  await signingOut;
+  const { member } = await api.acceptInvite(token, name, password);
+  await enter(member);
+}
+
+/* Signed in as this Member: send what a session that ended left unsynced when it was theirs, then load the Workspace. */
+async function enter(member) {
   const was = leftover;
   leftover = null;
   const next = afterSignIn(was, member);
@@ -259,6 +272,6 @@ function sessionEnded() {
 
 if (BACKEND) {
   onSave(push);
-  onSession({ signIn, signOut });
+  onSession({ signIn, signOut, acceptInvite });
   addEventListener('online', push);
 }

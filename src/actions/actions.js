@@ -8,6 +8,7 @@ import {
   D,
   DEFAULT_PREFS,
   S,
+  acceptInvite,
   allTasks,
   canSee,
   commentsOf,
@@ -30,7 +31,7 @@ import { viewOf } from '../shell/view-engine.js';
 import { TEMPLATES, closeModal, openModal } from '../overlays/modals.js';
 import { closePop, openPop, tgt } from '../overlays/popovers.js';
 import { strengthMeter } from '../pages/settings.js';
-import { BACKEND } from '../core/api.js';
+import { BACKEND, api } from '../core/api.js';
 import { slug } from '../core/slug.js';
 
 export const A = {},
@@ -1577,11 +1578,17 @@ A.submitInvite = () => {
     toast(`${list.length} invitation${list.length > 1 ? 's' : ''} sent`);
   });
 };
-A.copyInviteLink = () => copy(`https://gr8rstudio.com/join/${D().ws.url}-7f3k2`, 'Invite link copied');
+// Backend mode has no Workspace-wide link: every Invite is one person's (the button is hidden there).
+A.copyInviteLink = () => demoOnly() || copy(`https://gr8rstudio.com/join/${D().ws.url}-7f3k2`, 'Invite link copied');
 A.resendInvite = el => {
+  const m = mem(el.dataset.id);
   S.ui.pop = null;
   render();
-  toast(`Invite resent to ${mem(el.dataset.id).email}`);
+  if (!BACKEND) return toast(`Invite resent to ${m.email}`);
+  api.resendInvite(m.id).then(
+    () => toast(`Invite resent to ${m.email}`),
+    err => toast(err.message, { kind: 'err' }),
+  );
 };
 A.viewProfile = el => go('member', { id: el.dataset.id });
 A.assignToMember = el => {
@@ -2139,6 +2146,42 @@ A.doLogin = () => {
       },
     ),
   );
+};
+A.doJoin = () => {
+  const j = S.ui.join;
+  const e = (S.ui.errors = {});
+  const nm = $('#j-name').value.trim(),
+    pw = $('#j-pw').value;
+  j.name = nm;
+  if (!nm) e.name = 'Enter your name';
+  if (!pw) e.pw = j.invite.account ? 'Enter your password' : 'Choose a password';
+  else if (!j.invite.account && (pw.length < 10 || !/[0-9\W]/.test(pw))) e.pw = 'Use at least 10 characters, including a number or symbol';
+  if (Object.keys(e).length) {
+    render();
+    (e.name ? $('#j-name') : $('#j-pw'))?.focus();
+    return;
+  }
+  loadingBtn('join-btn', 0, () =>
+    acceptInvite(j.token, nm, pw).then(
+      () => {
+        // The link worked once: a reload must not show it again.
+        history.replaceState(null, '', location.pathname + location.search);
+        S.ui.join = null;
+        S.ui.pwNew = '';
+        enterApp(`Welcome to ${D().ws.name}`);
+      },
+      err => {
+        S.ui.errors = { join: err.message };
+        render();
+        $('#j-pw')?.focus();
+      },
+    ),
+  );
+};
+/* Leaves a dead Invite link for the app as it starts without one: the sign-in page, or the Workspace of the session this browser has. */
+A.leaveJoin = () => {
+  history.replaceState(null, '', location.pathname + location.search);
+  location.reload();
 };
 A.socialAuth = el => {
   if (demoOnly()) return;
