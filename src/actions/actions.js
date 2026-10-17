@@ -2424,6 +2424,13 @@ A.doReset = () => {
   );
 };
 
+/* Leaves a reset link (#reset/<token>) for the forgot form, or for the app as it starts without the link (the sign-in page,
+   or the Workspace of the session this browser has). */
+A.leaveReset = el => {
+  history.replaceState(null, '', location.pathname + location.search + (el.dataset.v === 'forgot' ? '#forgot' : ''));
+  location.reload();
+};
+
 /* onboarding */
 A.onbSet = el => {
   S.ui.onbData[el.dataset.k] = el.dataset.v;

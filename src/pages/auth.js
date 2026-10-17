@@ -68,7 +68,8 @@ export function renderAuth() {
     ${e.reset ? `<div class="alert danger" role="alert">${ic('circle-alert', 15)}<span>${esc(e.reset)}</span></div>` : ''}
     <div class="field"><label class="label" for="r-pw">New password</label><input class="input input-lg ${icls('pw')}" id="r-pw" type="password" data-in="pwStrength" value="${esc(S.ui.pwNew || '')}" autocomplete="new-password">${strengthMeter(S.ui.pwNew || '')}${ferr('pw')}</div>
     <div class="field"><label class="label" for="r-pw2">Confirm password</label><input class="input input-lg ${icls('pw2')}" id="r-pw2" type="password" autocomplete="new-password">${ferr('pw2')}</div>
-    <button class="btn btn-primary btn-lg btn-block" data-a="doReset" id="reset-btn">Reset password</button></form>`);
+    <button class="btn btn-primary btn-lg btn-block" data-a="doReset" id="reset-btn">Reset password</button>
+    ${BACKEND ? `<p class="auth-foot"><button type="button" class="link" data-a="leaveReset" data-v="forgot">Request a new link</button> · <button type="button" class="link" data-a="leaveReset" data-v="login">Back to sign in</button></p>` : ''}</form>`);
   if (s === 'reset-done')
     return authShell(
       `<div class="auth-card${S.ui.fx.auth ? ' fx-auth' : ''}"><div style="display:flex;justify-content:center"><span class="ftype" style="--c:var(--green);width:44px;height:44px;border-radius:11px">${ic('circle-check', 20)}</span></div><h1>Password updated</h1><p class="sub">You can now sign in with your new password.</p><button class="btn btn-primary btn-lg btn-block" data-a="auth" data-v="login">Sign in</button></div>`,
