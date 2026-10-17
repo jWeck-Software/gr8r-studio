@@ -54,8 +54,11 @@ final readonly class TaskHandler implements CollectionHandler
         if (null !== $task && $task->getWorkspace() !== $ws) {
             throw SyncRejected::invalid(\sprintf('The id "%s" is already used.', $id));
         }
-        if (null !== $task && $this->access->sees($actor, $task->getProject()) && self::record(new Fields($task->toRecord(), 'Task')) === $record) {
-            // Nothing but the star changed: anyone who sees the Task may star it, Guests included.
+        $untouched = static fn (array $r): array => array_diff_key($r, ['updated' => 0]);
+        if (null !== $task && $this->access->sees($actor, $task->getProject()) && $untouched(self::record(new Fields($task->toRecord(), 'Task'))) === $untouched($record)) {
+            // Nothing but the star and the time changed: anyone who sees the Task may star it, and
+            // commenting on it bumps `updated` (the frontend's logAct), Guests included.
+            $task->touch($record['updated']);
             $actor->star('tasks', $id, $fav);
 
             return [];

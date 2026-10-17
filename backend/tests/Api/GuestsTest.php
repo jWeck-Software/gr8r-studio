@@ -104,6 +104,23 @@ final class GuestsTest extends ApiTestCase
         self::assertSame(['👀' => ['mg1']], $comments['c8']['re']);
     }
 
+    /** postComment() logs Activity, and logAct() bumps the Task's `updated`: the batch carries all three. */
+    public function testAGuestCommentsAsTheFrontendSendsIt(): void
+    {
+        $t34 = $this->record('tasks', 't34');
+
+        $body = $this->sync([
+            ['op' => 'put', 'type' => 'tasks', 'id' => 't34', 'data' => [...$t34, 'updated' => 1792238400000]],
+            ['op' => 'put', 'type' => 'comments', 'id' => 'cx7k2m9', 'data' => ['id' => 'cx7k2m9', 'task' => 't34', 'by' => 'mg1', 'at' => 1792238400000, 'text' => 'Channel split attached.', 're' => []]],
+            ['op' => 'put', 'type' => 'activity', 'id' => 'ax7k2m9', 'data' => ['id' => 'ax7k2m9', 'by' => 'mg1', 'verb' => 'commented on', 'task' => 't34', 'project' => 'p3', 'at' => 1792238400000, 'extra' => '']],
+        ]);
+
+        self::assertSame(['ok' => true], $body);
+        self::assertSame(1792238400000, $this->record('tasks', 't34')['updated']);
+        self::assertSame('Channel split attached.', $this->record('comments', 'cx7k2m9')['text']);
+        self::assertSame('mg1', $this->record('activity', 'ax7k2m9')['by']);
+    }
+
     public function testAGuestCannotCommentOutsideTheirProjects(): void
     {
         $body = $this->sync([['op' => 'put', 'type' => 'comments', 'id' => 'cx7k2m9', 'data' => ['id' => 'cx7k2m9', 'task' => 't3', 'by' => 'mg1', 'at' => 1792238400000, 'text' => 'Hi', 're' => []]]]);

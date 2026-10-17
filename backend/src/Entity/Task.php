@@ -146,6 +146,12 @@ class Task
         $this->archivedAt = $record['archivedAt'] ?? null;
     }
 
+    /** @param int $updated epoch milliseconds */
+    public function touch(int $updated): void
+    {
+        $this->updated = $updated;
+    }
+
     /** @return array<string, mixed> the Task in the frontend's shape */
     public function toRecord(): array
     {
