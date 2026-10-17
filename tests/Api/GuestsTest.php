@@ -235,8 +235,7 @@ final class GuestsTest extends ApiTestCase
 
     public function testAGuestUploadsNoFiles(): void
     {
-        $path = tempnam(sys_get_temp_dir(), 'gr8r-upload');
-        file_put_contents($path, 'notes');
+        $path = $this->tempFile('notes');
         $this->client->request('POST', '/api/files', ['id' => 'fg1', 'project' => 'p3'], ['file' => new UploadedFile($path, 'notes.txt', test: true)]);
 
         self::assertResponseStatusCodeSame(403);

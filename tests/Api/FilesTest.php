@@ -341,15 +341,7 @@ final class FilesTest extends ApiTestCase
      */
     private function upload(string $name, ?string $content, array $fields, int $sparseBytes = 0): array
     {
-        $path = tempnam(sys_get_temp_dir(), 'gr8r-upload');
-        if (null === $content) {
-            // A file of this size without writing its bytes
-            $handle = fopen($path, 'w');
-            ftruncate($handle, $sparseBytes);
-            fclose($handle);
-        } else {
-            file_put_contents($path, $content);
-        }
+        $path = $this->tempFile($content, $sparseBytes);
         $this->client->request('POST', '/api/files', $fields, ['file' => new UploadedFile($path, $name, test: true)]);
 
         return $this->lastJson();

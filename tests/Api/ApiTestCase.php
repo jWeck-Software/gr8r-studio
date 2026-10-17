@@ -21,6 +21,9 @@ abstract class ApiTestCase extends WebTestCase
 
     protected KernelBrowser $client;
 
+    /** @var list<string> */
+    private array $tempFiles = [];
+
     protected function setUp(): void
     {
         self::mockTime(new \DateTimeImmutable('2026-10-17 12:00:00', new \DateTimeZone('UTC')));
@@ -28,6 +31,39 @@ abstract class ApiTestCase extends WebTestCase
         // The rate limits (App\Security\RateLimits) count in a cache that outlives the test's transaction.
         static::getContainer()->get('cache.rate_limiter')->clear();
         static::getContainer()->get(DemoSeed::class)->load();
+    }
+
+    protected function tearDown(): void
+    {
+        // A refused upload leaves its file where the test wrote it; a stored one has been moved away.
+        foreach ($this->tempFiles as $path) {
+            if (is_file($path)) {
+                unlink($path);
+            }
+        }
+        $this->tempFiles = [];
+        parent::tearDown();
+    }
+
+    /**
+     * A file to upload, removed after the test.
+     *
+     * @param string|null $content the file's bytes, or null for a file of `$sparseBytes` zeros
+     */
+    protected function tempFile(?string $content, int $sparseBytes = 0): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'gr8r-upload');
+        $this->tempFiles[] = $path;
+        if (null === $content) {
+            // A file of this size without writing its bytes
+            $handle = fopen($path, 'w');
+            ftruncate($handle, $sparseBytes);
+            fclose($handle);
+        } else {
+            file_put_contents($path, $content);
+        }
+
+        return $path;
     }
 
     /** @return array<mixed> */
