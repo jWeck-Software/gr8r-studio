@@ -121,6 +121,25 @@ final class CommentsTest extends ApiTestCase
         self::assertSame('m2', $this->comment('c2')['by']);
     }
 
+    /** Writes to records one can't see are refused: Lena, taken off the Private Customer Portal (p6), can't delete her Comment there. */
+    public function testDeletingOnesCommentOnATaskOneNoLongerSeesIsForbidden(): void
+    {
+        $this->signIn('lena@gr8rstudio.com');
+        $this->sync([['op' => 'put', 'type' => 'comments', 'id' => 'cx7k2m9', 'data' => self::newComment(['task' => 't49', 'by' => 'm7', 'text' => 'Contract review is done.'])]]);
+        $this->switchTo('marcus@gr8rstudio.com');
+        $p6 = array_column($this->getJson('/api/bootstrap')['data']['projects'], null, 'id')['p6'];
+        $this->sync([['op' => 'put', 'type' => 'projects', 'id' => 'p6', 'data' => [...$p6, 'members' => ['m6']]]]);
+        self::assertResponseStatusCodeSame(200);
+        $this->switchTo('lena@gr8rstudio.com');
+
+        $body = $this->sync([['op' => 'delete', 'type' => 'comments', 'id' => 'cx7k2m9']]);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(['error' => 'forbidden', 'op' => 0, 'message' => 'You may not delete the Comment "cx7k2m9".'], $body);
+        $this->switchTo('marcus@gr8rstudio.com');
+        self::assertSame('Contract review is done.', $this->comment('cx7k2m9')['text']);
+    }
+
     public function testDeletingAnUnknownCommentIsANoOp(): void
     {
         $this->signIn();

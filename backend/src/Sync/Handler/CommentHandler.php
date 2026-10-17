@@ -78,6 +78,10 @@ final readonly class CommentHandler implements CollectionHandler
         if (null === $comment || $comment->getWorkspace() !== $actor->getWorkspace()) {
             return;
         }
+        // Visibility first: who can't see the Task doesn't learn who wrote the Comment.
+        if (!$this->access->sees($actor, $comment->getTask()->getProject())) {
+            throw SyncRejected::forbidden(\sprintf('You may not delete the Comment "%s".', $id));
+        }
         if ($comment->getBy() !== $actor->getId()) {
             throw SyncRejected::forbidden(\sprintf('Only its author may delete the Comment "%s".', $id));
         }

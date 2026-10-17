@@ -75,7 +75,7 @@ health and login answers `401 {"error":"unauthenticated"}`.
   server renumbers it and the answer says so: `{"ok": true, "keys": {"<taskId>": "WEB-207"}}`.
 - `src/Sync/Handler/CommentHandler.php`: a new Comment is the signed-in Member's whatever the
   client sends; on someone else's Comment a Member may only add or remove their own id in the
-  Reactions (`re`), and only the author deletes it. Anyone who sees the Task may comment, Guests
+  Reactions (`re`), and only the author deletes it, as long as they see its Task. Anyone who sees the Task may comment, Guests
   included. Deleting a Task or a Project deletes its Comments. A deleted Comment leaves a
   `DeletedComment` behind (never in bootstrap): when undo puts the same id again, the Comment comes
   back as its author's, for a Member who sees its Task, instead of becoming a new one by whoever undid.
