@@ -161,15 +161,25 @@ final class BootstrapTest extends ApiTestCase
         self::assertFalse($data['tfa']);
     }
 
-    public function testCollectionsOfLaterTicketsAreEmpty(): void
+    /** The demo's notification settings are everyone's; its recent searches are the Owner's, as src/data/seed.js shows the Owner. */
+    public function testTheDemoMembersHaveNotificationSettingsAndTheOwnerRecentSearches(): void
     {
+        $notifPrefs = [
+            'email_mention' => true, 'email_assign' => true, 'email_digest' => true, 'email_comment' => false,
+            'push_mention' => true, 'push_assign' => true, 'push_comment' => true, 'push_due' => true,
+            'mention_all' => true, 'assign_self' => true,
+        ];
         $this->signIn();
 
-        $data = $this->getJson('/api/bootstrap')['data'];
+        $owner = $this->getJson('/api/bootstrap')['data'];
+        $this->client->request('POST', '/api/logout');
+        $this->signIn('sarah@gr8rstudio.com');
+        $sarah = $this->getJson('/api/bootstrap')['data'];
 
-        foreach (['events', 'savedViews', 'recentSearches'] as $collection) {
-            self::assertSame([], $data[$collection], $collection);
-        }
+        self::assertRecord($notifPrefs, $owner['notifPrefs']);
+        self::assertSame(['homepage', 'Sarah', 'wireframes'], $owner['recentSearches']);
+        self::assertRecord($notifPrefs, $sarah['notifPrefs']);
+        self::assertSame([], $sarah['recentSearches']);
     }
 
     public function testTheWorkspacesTeamsComeWithIt(): void
@@ -187,6 +197,7 @@ final class BootstrapTest extends ApiTestCase
     public function testObjectsStayObjectsWhenEmpty(): void
     {
         $this->signIn();
+        $this->postJson('/api/sync', ['ops' => [['op' => 'set', 'type' => 'notifPrefs', 'data' => []]]]);
         $this->client->request('GET', '/api/bootstrap');
 
         $body = json_decode((string) $this->client->getResponse()->getContent());

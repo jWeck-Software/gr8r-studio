@@ -61,13 +61,24 @@ final readonly class Snapshot
                 'events' => [],
                 'savedViews' => [],
                 'teams' => self::inCreationOrder(array_map(static fn (Team $t): array => $t->toRecord(), $this->em->getRepository(Team::class)->findBy($byWorkspace))),
-                'recentSearches' => [],
-                'notifPrefs' => new \stdClass(),
+                'recentSearches' => $member->personal('recentSearches') ?? [],
+                'notifPrefs' => (object) ($member->personal('notifPrefs') ?? []),
                 ...$this->demoOnly(),
             ],
-            'prefs' => new \stdClass(),
-            'views' => new \stdClass(),
+            'prefs' => (object) ($member->personal('prefs') ?? []),
+            'views' => self::views($member->personal('views') ?? []),
         ];
+    }
+
+    /**
+     * The Member's view settings with every view, and its column widths, as a JSON object, also when
+     * empty: the frontend sets widths by column name (ViewSettingsHandler).
+     *
+     * @param array<string, array<string, mixed>> $views
+     */
+    private static function views(array $views): object
+    {
+        return (object) array_map(static fn (array $v): object => (object) (\array_key_exists('colW', $v) ? [...$v, 'colW' => (object) $v['colW']] : $v), $views);
     }
 
     /**

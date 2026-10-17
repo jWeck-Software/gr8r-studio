@@ -181,6 +181,24 @@ final class GuestsTest extends ApiTestCase
         self::assertSame(['error' => 'forbidden', 'op' => 0, 'message' => $message], $body);
     }
 
+    public function testAGuestKeepsTheirOwnPreferencesViewsAndSettings(): void
+    {
+        $views = ['p:p3' => ['filters' => [], 'sort' => ['f' => 'due', 'dir' => 1], 'group' => 'status', 'q' => '', 'hidden' => [], 'colW' => [], 'showDone' => true]];
+
+        $body = $this->sync([
+            ['op' => 'set', 'type' => 'prefs', 'data' => ['theme' => 'dark', 'density' => 'compact']],
+            ['op' => 'set', 'type' => 'views', 'data' => $views],
+            ['op' => 'set', 'type' => 'notifPrefs', 'data' => ['email_digest' => false]],
+            ['op' => 'set', 'type' => 'recentSearches', 'data' => ['brief']],
+        ]);
+
+        self::assertSame(['ok' => true], $body);
+        $bootstrap = $this->getJson('/api/bootstrap');
+        self::assertRecord(['theme' => 'dark', 'density' => 'compact'], $bootstrap['prefs']);
+        self::assertRecord($views, $bootstrap['views']);
+        self::assertSame([['email_digest' => false], ['brief']], [$bootstrap['data']['notifPrefs'], $bootstrap['data']['recentSearches']]);
+    }
+
     /** @param list<array<string, mixed>> $ops */
     private function sync(array $ops): array
     {

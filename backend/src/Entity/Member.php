@@ -17,6 +17,13 @@ class Member
     #[ORM\Column(type: Types::JSON, options: ['jsonb' => true])]
     private array $favorites = [];
 
+    /**
+     * @var array<string, mixed> the Member's own singletons of the frontend, by type ("prefs", "views",
+     *                           "notifPrefs", "recentSearches"), as App\Sync\Handler\PersonalSetting stored them
+     */
+    #[ORM\Column(type: Types::JSON, options: ['jsonb' => true, 'default' => '{}'])]
+    private array $personal = [];
+
     public function __construct(
         #[ORM\Id]
         #[ORM\Column(length: 44)]
@@ -139,6 +146,18 @@ class Member
     public function starred(string $collection): array
     {
         return $this->favorites[$collection] ?? [];
+    }
+
+    /** Keeps one of the Member's own settings, such as their Preferences ("prefs"), replacing what was there. */
+    public function keepPersonal(string $type, mixed $value): void
+    {
+        $this->personal = [...$this->personal, $type => $value];
+    }
+
+    /** @return mixed the Member's own setting of this type, null when they never stored one */
+    public function personal(string $type): mixed
+    {
+        return $this->personal[$type] ?? null;
     }
 
     /** @return array<string, mixed> the Member in the frontend's shape */

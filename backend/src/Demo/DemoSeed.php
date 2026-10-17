@@ -29,6 +29,12 @@ final class DemoSeed
 {
     public const string PASSWORD = 'gr8r-studio-demo';
     private const string WORKSPACE_URL = 'gr8rstudio';
+    /** Every demo Member's notification settings. */
+    private const array NOTIF_PREFS = [
+        'email_mention' => true, 'email_assign' => true, 'email_digest' => true, 'email_comment' => false,
+        'push_mention' => true, 'push_assign' => true, 'push_comment' => true, 'push_due' => true,
+        'mention_all' => true, 'assign_self' => true,
+    ];
 
     private \DateTimeImmutable $now;
 
@@ -116,8 +122,11 @@ final class DemoSeed
                 $this->em->persist($user);
             }
             $members[$id] = new Member($id, $ws, $name, $email, $role, $team, $title, $c, $status, $last, $tz, $user);
+            $members[$id]->keepPersonal('notifPrefs', self::NOTIF_PREFS);
             $this->em->persist($members[$id]);
         }
+        // src/data/seed.js shows the Owner's.
+        $members['m1']->keepPersonal('recentSearches', ['homepage', 'Sarah', 'wireframes']);
 
         return $members;
     }
