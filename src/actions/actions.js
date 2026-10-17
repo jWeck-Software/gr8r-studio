@@ -35,7 +35,7 @@ import { TEMPLATES, closeModal, openModal } from '../overlays/modals.js';
 import { closePop, openPop, tgt } from '../overlays/popovers.js';
 import { strengthMeter } from '../pages/settings.js';
 import { BACKEND, api } from '../core/api.js';
-import { attachmentOf, removeFile } from '../core/files.js';
+import { attachmentOf, removeFile, undoTo } from '../core/files.js';
 import { slug } from '../core/slug.js';
 import { weakPassword } from '../core/password.js';
 
@@ -164,8 +164,9 @@ export function confirmDlg(o) {
 export function snapshot() {
   return JSON.stringify(S.data);
 }
+/* Undo: S.data as the snapshot had it, but with the Files uploaded since (undoTo). */
 export function restore(snap) {
-  S.data = JSON.parse(snap);
+  S.data = undoTo(JSON.parse(snap), S.data);
   save();
   render();
 }
