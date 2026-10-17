@@ -5,7 +5,8 @@
    collections against the copy the server last confirmed and posts the ops, one request at
    a time. A refused batch (403/422) reloads the Workspace and says why; a failed request
    (offline, 5xx) keeps the changes pending and retries on the next save or when the browser
-   is back online. ADR 0002.
+   is back online. When the server renumbers a new Task whose key someone else took meanwhile,
+   the new key replaces the local one (ADR 0002, ADR 0003).
    ===================================================================== */
 import { BACKEND, api } from '../core/api.js';
 import { diffData } from '../core/diff.js';
@@ -13,8 +14,9 @@ import { S, onSave, task } from '../core/store.js';
 import { toast } from '../ui/toast.js';
 import { render } from '../shell/render.js';
 
-/* Collections written through /api/sync, in the order the server applies them. Grows ticket by ticket. */
-export const SYNCED = ['tasks'];
+/* Collections and singletons written through /api/sync, in the order the server applies them:
+   Projects before the Tasks and the Project order that refer to them. Grows ticket by ticket. */
+export const SYNCED = ['projects', 'tasks', 'projOrder'];
 
 let synced = null; // what the server last confirmed, as a deep copy; null while signed out
 let session = 0; // bumped on every sign-in and sign-out, so late answers of an old session are dropped
@@ -23,7 +25,7 @@ let again = false; // a save came in while a push was running
 let failing = false; // the last push could not reach the server
 let leaving = Promise.resolve(); // a sign-out still talking to the server
 
-const copyOf = data => JSON.parse(JSON.stringify(Object.fromEntries(SYNCED.map(c => [c, data[c] || []]))));
+const copyOf = data => JSON.parse(JSON.stringify(Object.fromEntries(SYNCED.map(c => [c, data[c]]))));
 
 /** Boot: true when a session exists and its Workspace is loaded, false when nobody is signed in. Rejects with an ApiError otherwise. */
 export async function resumeSession() {
@@ -93,8 +95,9 @@ async function send() {
   const ops = diffData(synced, next, SYNCED);
   if (!ops.length) return;
   try {
-    await api.sync(ops);
+    const res = await api.sync(ops);
     if (s !== session) return;
+    if (res?.keys) applyKeys(res.keys, [S.data, next]);
     synced = next;
     if (failing) toast('Reconnected. All changes are synced.');
     failing = false;
@@ -108,6 +111,22 @@ async function send() {
       toast("Your changes aren't saved yet. They'll be sent when the connection is back.", { kind: 'err', ms: 6000 });
     }
   }
+}
+
+/* The server renumbered these new Tasks ({taskId: key}). Each copy of the data takes the new keys,
+   and the Project's seq moves past them so the next new Task doesn't collide again. */
+function applyKeys(keys, copies) {
+  for (const data of copies) {
+    for (const [id, key] of Object.entries(keys)) {
+      const t = data.tasks.find(x => x.id === id);
+      if (!t) continue; // deleted here in the meantime
+      t.key = key;
+      const p = data.projects.find(x => x.id === t.project);
+      const n = Number(key.slice(key.lastIndexOf('-') + 1));
+      if (p && n > (p.seq || 200)) p.seq = n;
+    }
+  }
+  render();
 }
 
 async function reloadAfterRefusal(message) {

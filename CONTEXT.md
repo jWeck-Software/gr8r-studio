@@ -39,6 +39,9 @@ _Avoid_: board, space
 A Project only its own Members can see, together with everything inside it.
 _Avoid_: restricted project, hidden project
 
+**Project order**:
+The order of Projects in the sidebar, shared by the whole Workspace. Projects a Member can't see keep their place in it.
+
 **Task**:
 One piece of work inside a Project, with a status, an assignee, a priority and dates.
 _Avoid_: ticket, issue, card, item
@@ -99,6 +102,10 @@ A dated meeting on a Project's calendar.
 _Avoid_: meeting, appointment
 
 ### Personal settings
+
+**Favorite**:
+A Project or Task one Member starred; it is that Member's own and changes nothing for anyone else.
+_Avoid_: bookmark, pin
 
 **Preferences**:
 How one User wants the app to look and behave, such as theme, density and date format.

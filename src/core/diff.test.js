@@ -75,3 +75,18 @@ test('a collection missing on one side counts as empty', () => {
   assert.deepEqual(diffData({}, { tasks: [{ id: 'x1' }] }, ['tasks']), [{ op: 'put', type: 'tasks', id: 'x1', data: { id: 'x1' } }]);
   assert.deepEqual(diffData({ tasks: [{ id: 'x1' }] }, {}, ['tasks']), [{ op: 'delete', type: 'tasks', id: 'x1' }]);
 });
+
+test('a changed singleton is set as a whole, after the collections listed before it', () => {
+  const prev = { projects: [{ id: 'p1' }], projOrder: ['p1', 'p2'] };
+  const next = { projects: [{ id: 'p1' }, { id: 'p9' }], projOrder: ['p9', 'p2', 'p1'] };
+
+  assert.deepEqual(diffData(prev, next, ['projects', 'projOrder']), [
+    { op: 'put', type: 'projects', id: 'p9', data: { id: 'p9' } },
+    { op: 'set', type: 'projOrder', data: ['p9', 'p2', 'p1'] },
+  ]);
+});
+
+test('an unchanged singleton is left out, an emptied one is set', () => {
+  assert.deepEqual(diffData({ projOrder: ['p1'] }, { projOrder: ['p1'] }, ['projOrder']), []);
+  assert.deepEqual(diffData({ projOrder: ['p1'] }, { projOrder: [] }, ['projOrder']), [{ op: 'set', type: 'projOrder', data: [] }]);
+});
