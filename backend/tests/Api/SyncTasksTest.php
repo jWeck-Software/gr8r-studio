@@ -216,6 +216,44 @@ final class SyncTasksTest extends ApiTestCase
         self::assertSame(['error' => 'invalid', 'message' => 'The body must be {"ops": [...]}.'], $body);
     }
 
+    /** @return iterable<string, array{string}> */
+    public static function malformedBodies(): iterable
+    {
+        yield 'empty' => [''];
+        yield 'null' => ['null'];
+        yield 'a list' => ['[]'];
+        yield 'ops a number' => ['{"ops": 3}'];
+        yield 'ops a string' => ['{"ops": "put"}'];
+        yield 'ops null' => ['{"ops": null}'];
+        yield 'ops an object' => ['{"ops": {"first": {"op": "delete", "type": "tasks", "id": "t4"}}}'];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('malformedBodies')]
+    public function testABodyThatIsNotAnEnvelopeOfOpsIsRefused(string $content): void
+    {
+        $this->client->request('POST', '/api/sync', server: ['CONTENT_TYPE' => 'application/json'], content: $content);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['error' => 'invalid', 'message' => 'The body must be {"ops": [...]}.'], $this->lastJson());
+        self::assertNotNull($this->task('t4'));
+    }
+
+    public function testABodyThatIsNotJsonIsRefused(): void
+    {
+        $this->client->request('POST', '/api/sync', server: ['CONTENT_TYPE' => 'application/json'], content: '{"ops": [');
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['error' => 'invalid', 'message' => 'Request payload contains invalid "json" data.'], $this->lastJson());
+    }
+
+    public function testABodyNotSentAsJsonIsRefused(): void
+    {
+        $this->client->request('POST', '/api/sync', ['ops' => []]);
+
+        self::assertResponseStatusCodeSame(415);
+        self::assertSame('unsupported_media_type', $this->lastJson()['error']);
+    }
+
     public function testSyncWithoutSessionIsUnauthenticated(): void
     {
         $this->client->request('POST', '/api/logout');

@@ -4,11 +4,12 @@ namespace App\Controller;
 
 use App\Entity\User;
 use App\Security\SignedIn;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
-final class AuthController
+final class AuthController extends AbstractController
 {
     /** Reached only when json_login did not handle the request, e.g. a body that is not JSON. */
     #[Route('/api/login', name: 'api_login', methods: ['POST'])]

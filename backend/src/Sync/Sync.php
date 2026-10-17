@@ -39,7 +39,7 @@ final readonly class Sync
     }
 
     /**
-     * @param mixed $batch the decoded request body, `{"ops": [...]}`
+     * @param list<mixed> $ops the ops of the request body, `{"ops": [...]}` (Batch)
      *
      * @return array<string, array<string, mixed>> what the client has to learn about the records it
      *                                             sent, such as `keys` of new Tasks the server
@@ -47,15 +47,11 @@ final readonly class Sync
      *
      * @throws SyncRejected with the index of the refused op, if any; nothing has been written
      */
-    public function apply(Member $actor, mixed $batch): array
+    public function apply(Member $actor, array $ops): array
     {
-        if (!\is_array($batch) || !\is_array($batch['ops'] ?? null) || !array_is_list($batch['ops'])) {
-            throw SyncRejected::invalid('The body must be {"ops": [...]}.');
-        }
-
-        return $this->em->wrapInTransaction(function () use ($actor, $batch): array {
+        return $this->em->wrapInTransaction(function () use ($actor, $ops): array {
             $reply = [];
-            foreach ($batch['ops'] as $index => $op) {
+            foreach ($ops as $index => $op) {
                 try {
                     $reply = array_replace_recursive($reply, $this->applyOne($actor, $op));
                     $this->em->flush();
