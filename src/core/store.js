@@ -83,6 +83,7 @@ export const S = {
     collapsedCols: {},
     errors: {},
     drafts: {},
+    undos: 0, // undo toasts open now (ui/toast.js)
   },
 };
 export let _saveT;

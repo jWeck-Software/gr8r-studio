@@ -10,7 +10,7 @@
    While signed in, teammates' changes come in by a refresh when the tab is shown again or the
    window regains focus, and every 60 s while the tab is visible: pending changes are sent first,
    and the snapshot replaces the synced collections only when nothing is unsynced afterwards and
-   the user is not in the middle of an edit (sync-rules.js). An expired session (401) keeps the
+   the user is not in the middle of an edit nor able to undo (sync-rules.js). An expired session (401) keeps the
    unsynced changes and shows the login screen; signing in again as the same Member sends them,
    another Member signing in discards them.
    ===================================================================== */
