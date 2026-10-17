@@ -10,6 +10,7 @@ use App\Sync\CollectionHandler;
 use App\Sync\Fields;
 use App\Sync\SyncRejected;
 use App\Sync\WorkspaceRecords;
+use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * Files through the sync: a put renames one, a delete removes it and its content. A File is
@@ -21,6 +22,7 @@ final readonly class FileHandler implements CollectionHandler
         private ProjectAccess $access,
         private Files $files,
         private WorkspaceRecords $records,
+        private EntityManagerInterface $em,
     ) {
     }
 
@@ -45,8 +47,9 @@ final readonly class FileHandler implements CollectionHandler
 
     public function delete(Member $actor, string $id): void
     {
-        $file = $this->records->find(File::class, $actor, $id);
-        if (null !== $file) {
+        // Another Workspace's id is as unknown as one nobody uses: deleting it is a no-op.
+        $file = $this->em->find(File::class, $id);
+        if (null !== $file && $file->getWorkspace() === $actor->getWorkspace()) {
             $this->authorize($actor, $file);
             $this->files->remove($file);
         }

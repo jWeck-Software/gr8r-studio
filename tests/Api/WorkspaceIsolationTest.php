@@ -8,6 +8,7 @@ use App\Entity\Task;
 use App\Entity\User;
 use App\Entity\Workspace;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /** A second Workspace, "Acme Labs", next to the demo one: neither sees nor touches the other. */
@@ -51,6 +52,24 @@ final class WorkspaceIsolationTest extends ApiTestCase
         $this->client->request('POST', '/api/logout');
         $this->signIn('ada@acme.test', 'acme-password');
         self::assertSame(['tac1'], array_column($this->getJson('/api/bootstrap')['data']['tasks'], 'id'));
+    }
+
+    public function testDeletingAnotherWorkspacesFileChangesNothing(): void
+    {
+        $this->signIn('ada@acme.test', 'acme-password');
+        $this->client->request('POST', '/api/files', ['id' => 'fac1', 'project' => 'pac1'], ['file' => new UploadedFile($this->tempFile('plans'), 'plans.txt', test: true)]);
+        self::assertResponseStatusCodeSame(201);
+        $this->client->request('POST', '/api/logout');
+        $this->signIn();
+
+        $body = $this->postJson('/api/sync', ['ops' => [['op' => 'delete', 'type' => 'files', 'id' => 'fac1']]]);
+
+        self::assertSame(['ok' => true], $body);
+        $this->client->request('POST', '/api/logout');
+        $this->signIn('ada@acme.test', 'acme-password');
+        self::assertSame(['fac1'], array_column($this->getJson('/api/bootstrap')['data']['files'], 'id'));
+        $this->client->request('GET', '/api/files/fac1/content');
+        self::assertResponseIsSuccessful();
     }
 
     /** Notifications are made by the server only; another Workspace's are as unknown as made-up ones. */
