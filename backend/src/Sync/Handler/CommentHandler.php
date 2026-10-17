@@ -6,6 +6,7 @@ use App\Access\ProjectAccess;
 use App\Entity\Comment;
 use App\Entity\Member;
 use App\Entity\Task;
+use App\Notification\Notifier;
 use App\Sync\CollectionHandler;
 use App\Sync\Fields;
 use App\Sync\SyncRejected;
@@ -17,6 +18,7 @@ final readonly class CommentHandler implements CollectionHandler
     public function __construct(
         private EntityManagerInterface $em,
         private ProjectAccess $access,
+        private Notifier $notifier,
     ) {
     }
 
@@ -52,11 +54,14 @@ final readonly class CommentHandler implements CollectionHandler
             $this->em->persist($comment);
             // A new Comment is the signed-in Member's, whoever the client names (ADR 0003).
             $comment->update([...$record, 'by' => $actor->getId()], $task);
+            $this->notifier->commentPut($actor, null, $comment);
 
             return [];
         }
         $this->authorizeChange($actor, $comment, $record);
+        $old = $comment->toRecord();
         $comment->update($record, $task);
+        $this->notifier->commentPut($actor, $old, $comment);
 
         return [];
     }

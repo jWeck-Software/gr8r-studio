@@ -8,6 +8,7 @@ use App\Entity\Member;
 use App\Entity\Project;
 use App\Entity\Task;
 use App\Entity\TaskKeys;
+use App\Notification\Notifier;
 use App\Sync\CollectionHandler;
 use App\Sync\Fields;
 use App\Sync\Sync;
@@ -23,6 +24,7 @@ final readonly class TaskHandler implements CollectionHandler
     public function __construct(
         private EntityManagerInterface $em,
         private ProjectAccess $access,
+        private Notifier $notifier,
     ) {
     }
 
@@ -77,12 +79,15 @@ final readonly class TaskHandler implements CollectionHandler
             $reply = ['keys' => [$id => $record['key']]];
         }
 
+        // Read before the update: the assign rule compares against the Task as it was.
+        $old = $task?->toRecord();
         if (null === $task) {
             $task = new Task($id, $ws);
             $this->em->persist($task);
         }
         $task->update($record, $project, $assignee);
         $actor->star('tasks', $id, $fav);
+        $this->notifier->taskPut($actor, $old, $task);
 
         return $reply;
     }

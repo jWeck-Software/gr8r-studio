@@ -6,6 +6,7 @@ use App\Access\ProjectAccess;
 use App\Entity\Activity;
 use App\Entity\Comment;
 use App\Entity\Member;
+use App\Entity\Notification;
 use App\Entity\Project;
 use App\Entity\Task;
 use App\Entity\TaskKeys;
@@ -51,7 +52,7 @@ final readonly class Snapshot
                 'projOrder' => array_values(array_intersect($ws->getProjOrder(), $visible)),
                 'comments' => $this->comments($visibleTasks),
                 'activity' => $this->activity($member, $visible),
-                'notifs' => [],
+                'notifs' => $this->notifs($member, $visible, array_map(static fn (Task $t): string => $t->getId(), $visibleTasks)),
                 'files' => [],
                 'events' => [],
                 'savedViews' => [],
@@ -94,6 +95,25 @@ final readonly class Snapshot
             ->getResult();
 
         return array_map(static fn (Activity $a): array => $a->toRecord(), $entries);
+    }
+
+    /**
+     * The Member's own Notifications, newest first, as the frontend lists them. Those about a Task
+     * or Project the Member can't see (now) are left out, a deleted one included.
+     *
+     * @param list<string> $visibleProjects
+     * @param list<string> $visibleTasks
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function notifs(Member $member, array $visibleProjects, array $visibleTasks): array
+    {
+        $notifications = $this->em->getRepository(Notification::class)->findBy(['recipient' => $member], ['at' => 'DESC', 'id' => 'DESC']);
+        $projects = array_flip($visibleProjects);
+        $tasks = array_flip($visibleTasks);
+        $records = array_map(static fn (Notification $n): array => $n->toRecord(), $notifications);
+
+        return array_values(array_filter($records, static fn (array $n): bool => (!isset($n['task']) || isset($tasks[$n['task']])) && (!isset($n['project']) || isset($projects[$n['project']]))));
     }
 
     /**
