@@ -24,7 +24,7 @@ class Member
     #[ORM\Column(type: Types::JSON, options: ['default' => '{}'])]
     private array $personal = [];
 
-    public function __construct(
+    private function __construct(
         #[ORM\Id]
         #[ORM\Column(length: 44)]
         private string $id,
@@ -53,6 +53,24 @@ class Member
         #[ORM\JoinColumn(onDelete: 'SET NULL')]
         private ?User $user = null,
     ) {
+    }
+
+    /** The User who starts a Workspace, as its first Owner: no Team or title yet, active from now on. */
+    public static function owner(string $id, Workspace $workspace, User $user): self
+    {
+        return self::joined($id, $workspace, $user, Role::Owner, '', '', '#5A67D8', 0, '—');
+    }
+
+    /** A Member who has joined the Workspace and signs in as this User, under the User's name and email address. */
+    public static function joined(string $id, Workspace $workspace, User $user, Role $role, string $team, string $title, string $c, int $last, string $tz): self
+    {
+        return new self($id, $workspace, $user->getName(), $user->getEmail(), $role, $team, $title, $c, MemberStatus::Active, $last, $tz, $user);
+    }
+
+    /** Someone invited by email: no User and no last activity until they accept the Invite (join()). */
+    public static function invited(string $id, Workspace $workspace, string $name, string $email, Role $role, string $team, string $title, string $c, string $tz): self
+    {
+        return new self($id, $workspace, $name, $email, $role, $team, $title, $c, MemberStatus::Invited, null, $tz);
     }
 
     public function getId(): string

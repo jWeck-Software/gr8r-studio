@@ -8,7 +8,6 @@ use App\Entity\Comment;
 use App\Entity\Event;
 use App\Entity\File;
 use App\Entity\Member;
-use App\Entity\MemberStatus;
 use App\Entity\Notification;
 use App\Entity\Project;
 use App\Entity\Role;
@@ -98,27 +97,26 @@ final class DemoSeed
     /** @return array<string, Member> */
     private function members(Workspace $ws): array
     {
-        $rows = [
-            ['m1', 'Tanjim Islam', 'hello@gr8rstudio.com', 'Owner', 'product', 'Head of Product', '#5A67D8', 'active', 0, 'San Francisco'],
-            ['m2', 'Sarah Chen', 'sarah@gr8rstudio.com', 'Admin', 'design', 'Design Lead', '#C54B78', 'active', 4, 'New York'],
-            ['m3', 'John Carter', 'john@gr8rstudio.com', 'Member', 'eng', 'Frontend Engineer', '#3B82C4', 'active', 22, 'London'],
-            ['m4', 'Emma Wilson', 'emma@gr8rstudio.com', 'Member', 'design', 'Product Designer', '#23918A', 'active', 9, 'Berlin'],
-            ['m5', 'Priya Patel', 'priya@gr8rstudio.com', 'Member', 'mkt', 'Content Strategist', '#C48A1E', 'active', 95, 'Toronto'],
-            ['m6', 'Marcus Lee', 'marcus@gr8rstudio.com', 'Member', 'eng', 'Backend Engineer', '#8662C9', 'active', 240, 'Singapore'],
-            ['m7', 'Lena Fischer', 'lena@gr8rstudio.com', 'Admin', 'product', 'QA Lead', '#3D8E5F', 'active', 1500, 'Munich'],
-            ['m8', 'Diego Alvarez', 'diego@freelance.io', 'Guest', 'mkt', 'Freelance Copywriter', '#C0612B', 'invited', null, 'Madrid'],
+        $joined = [
+            ['m1', 'Tanjim Islam', 'hello@gr8rstudio.com', Role::Owner, 'product', 'Head of Product', '#5A67D8', 0, 'San Francisco'],
+            ['m2', 'Sarah Chen', 'sarah@gr8rstudio.com', Role::Admin, 'design', 'Design Lead', '#C54B78', 4, 'New York'],
+            ['m3', 'John Carter', 'john@gr8rstudio.com', Role::Member, 'eng', 'Frontend Engineer', '#3B82C4', 22, 'London'],
+            ['m4', 'Emma Wilson', 'emma@gr8rstudio.com', Role::Member, 'design', 'Product Designer', '#23918A', 9, 'Berlin'],
+            ['m5', 'Priya Patel', 'priya@gr8rstudio.com', Role::Member, 'mkt', 'Content Strategist', '#C48A1E', 95, 'Toronto'],
+            ['m6', 'Marcus Lee', 'marcus@gr8rstudio.com', Role::Member, 'eng', 'Backend Engineer', '#8662C9', 240, 'Singapore'],
+            ['m7', 'Lena Fischer', 'lena@gr8rstudio.com', Role::Admin, 'product', 'QA Lead', '#3D8E5F', 1500, 'Munich'],
         ];
         $members = [];
-        foreach ($rows as [$id, $name, $email, $role, $team, $title, $c, $status, $last, $tz]) {
-            $user = null;
-            if ('active' === $status) {
-                $user = new User($email, $name);
-                $user->setPassword($this->hasher->hashPassword($user, self::PASSWORD));
-                $this->em->persist($user);
-            }
-            $members[$id] = new Member($id, $ws, $name, $email, Role::from($role), $team, $title, $c, MemberStatus::from($status), $last, $tz, $user);
-            $members[$id]->keepPersonal('notifPrefs', WorkspaceDefaults::NOTIF_PREFS);
-            $this->em->persist($members[$id]);
+        foreach ($joined as [$id, $name, $email, $role, $team, $title, $c, $last, $tz]) {
+            $user = new User($email, $name);
+            $user->setPassword($this->hasher->hashPassword($user, self::PASSWORD));
+            $this->em->persist($user);
+            $members[$id] = Member::joined($id, $ws, $user, $role, $team, $title, $c, $last, $tz);
+        }
+        $members['m8'] = Member::invited('m8', $ws, 'Diego Alvarez', 'diego@freelance.io', Role::Guest, 'mkt', 'Freelance Copywriter', '#C0612B', 'Madrid');
+        foreach ($members as $member) {
+            $member->keepPersonal('notifPrefs', WorkspaceDefaults::NOTIF_PREFS);
+            $this->em->persist($member);
         }
         // src/data/seed.js shows the Owner's.
         $members['m1']->keepPersonal('recentSearches', ['homepage', 'Sarah', 'wireframes']);

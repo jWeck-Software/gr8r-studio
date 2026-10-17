@@ -3,7 +3,6 @@
 namespace App\Tests\Api;
 
 use App\Entity\Member;
-use App\Entity\MemberStatus;
 use App\Entity\Role;
 use App\Entity\User;
 use App\Entity\Workspace;
@@ -270,7 +269,7 @@ final class GuestsTest extends ApiTestCase
         $user = new User(self::GUEST_EMAIL, 'Gale Guest');
         $user->setPassword($hasher->hashPassword($user, 'guest-password'));
         $em->persist($user);
-        $em->persist(new Member('mg1', $ws, 'Gale Guest', self::GUEST_EMAIL, Role::Guest, 'mkt', 'Freelance Designer', '#C0612B', MemberStatus::Active, 0, 'Lisbon', $user));
+        $em->persist(Member::joined('mg1', $ws, $user, Role::Guest, 'mkt', 'Freelance Designer', '#C0612B', 0, 'Lisbon'));
         $em->flush();
         $em->clear();
     }

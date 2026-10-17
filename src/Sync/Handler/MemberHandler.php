@@ -100,7 +100,7 @@ final readonly class MemberHandler implements CollectionHandler
         if (null !== $this->em->getRepository(Member::class)->findOneBy(['workspace' => $actor->getWorkspace(), 'email' => $email])) {
             throw SyncRejected::invalid(\sprintf('%s is already a Member of this Workspace.', $email));
         }
-        $member = new Member($id, $actor->getWorkspace(), $changes['name'], $email, $changes['role'], $changes['team'], $changes['title'], $changes['c'], MemberStatus::Invited, null, $fields->string('tz', 80));
+        $member = Member::invited($id, $actor->getWorkspace(), $changes['name'], $email, $changes['role'], $changes['team'], $changes['title'], $changes['c'], $fields->string('tz', 80));
         $this->em->persist($member);
         $this->invites->send($actor, $member);
     }
