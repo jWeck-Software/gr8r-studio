@@ -13,6 +13,7 @@ use App\Sync\CollectionHandler;
 use App\Sync\Fields;
 use App\Sync\Sync;
 use App\Sync\SyncRejected;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 
 /** Tasks: created, changed, moved, archived and deleted by any Member of the Workspace. */
@@ -70,18 +71,24 @@ final readonly class TaskHandler implements CollectionHandler
             $this->authorize($actor, $task->getProject());
         }
         $this->authorize($actor, $project);
-        $reply = [];
-        if ($this->keyTaken($project, $record['key'], $id)) {
-            if (null !== $task) {
-                throw SyncRejected::invalid(\sprintf('The Task key %s is already used in this Project.', $record['key']));
-            }
-            // Two Members numbered a new Task from the same seq: the later one gets the next key (ADR 0003).
-            $record['key'] = TaskKeys::next($project->getKey(), $this->keysIn($project));
-            $reply = ['keys' => [$id => $record['key']]];
-        }
-
         // Read before the update: the assign rule compares against the Task as it was.
         $old = $task?->toRecord();
+        $reply = [];
+        if (null === $old || $old['key'] !== $record['key'] || $old['project'] !== $record['project']) {
+            // Batches that number Tasks in this Project take turns until their transaction ends, so
+            // the later one sees the earlier one's keys and renumbers instead of hitting the unique
+            // index (ADR 0003).
+            $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
+            if ($this->keyTaken($project, $record['key'], $id)) {
+                if (null !== $task) {
+                    throw SyncRejected::invalid(\sprintf('The Task key %s is already used in this Project.', $record['key']));
+                }
+                // Two Members numbered a new Task from the same seq: the later one gets the next key (ADR 0003).
+                $record['key'] = TaskKeys::next($project->getKey(), $this->keysIn($project));
+                $reply = ['keys' => [$id => $record['key']]];
+            }
+        }
+
         if (null === $task) {
             $task = new Task($id, $ws);
             $this->em->persist($task);
