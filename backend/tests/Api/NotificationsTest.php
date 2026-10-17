@@ -111,6 +111,103 @@ final class NotificationsTest extends ApiTestCase
         self::assertSame([], $this->notifs());
     }
 
+    public function testTheRecipientMarksANotificationReadAndUnread(): void
+    {
+        $notif = $this->notifySarah();
+
+        $this->sync([['op' => 'put', 'type' => 'notifs', 'id' => $notif['id'], 'data' => [...$notif, 'read' => true]]]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertTrue($this->getJson('/api/bootstrap')['data']['notifs'][0]['read']);
+        $this->sync([['op' => 'put', 'type' => 'notifs', 'id' => $notif['id'], 'data' => [...$notif, 'read' => false]]]);
+        self::assertFalse($this->getJson('/api/bootstrap')['data']['notifs'][0]['read']);
+    }
+
+    public function testMarkingSomeoneElsesNotificationIsForbidden(): void
+    {
+        $notif = $this->notifySarah();
+        $this->switchTo(self::OWNER_EMAIL);
+
+        $body = $this->sync([['op' => 'put', 'type' => 'notifs', 'id' => $notif['id'], 'data' => [...$notif, 'read' => true]]]);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(['error' => 'forbidden', 'op' => 0, 'message' => \sprintf('The Notification "%s" is not yours.', $notif['id'])], $body);
+        $this->switchTo('sarah@gr8rstudio.com');
+        self::assertFalse($this->getJson('/api/bootstrap')['data']['notifs'][0]['read']);
+    }
+
+    /** @return iterable<string, array{array<string, mixed>}> */
+    public static function changesBesidesRead(): iterable
+    {
+        yield 'its text' => [['text' => 'fired you']];
+        yield 'its snippet' => [['snippet' => 'Due never']];
+        yield 'its type' => [['type' => 'mention']];
+        yield 'who caused it' => [['by' => 'm3']];
+        yield 'its Task' => [['task' => 't5']];
+        yield 'a Project' => [['project' => 'p1']];
+        yield 'its time' => [['at' => 1792238300000]];
+    }
+
+    /** @param array<string, mixed> $changes */
+    #[\PHPUnit\Framework\Attributes\DataProvider('changesBesidesRead')]
+    public function testTheRecipientMayChangeNothingButRead(array $changes): void
+    {
+        $notif = $this->notifySarah();
+
+        $body = $this->sync([['op' => 'put', 'type' => 'notifs', 'id' => $notif['id'], 'data' => [...$notif, ...$changes, 'read' => true]]]);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(['error' => 'forbidden', 'op' => 0, 'message' => \sprintf('Only "read" of the Notification "%s" can change.', $notif['id'])], $body);
+        self::assertSame($notif, $this->getJson('/api/bootstrap')['data']['notifs'][0]);
+    }
+
+    public function testReadMustBeTrueOrFalse(): void
+    {
+        $notif = $this->notifySarah();
+
+        $body = $this->sync([['op' => 'put', 'type' => 'notifs', 'id' => $notif['id'], 'data' => [...$notif, 'read' => 'yes']]]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['error' => 'invalid', 'op' => 0, 'message' => 'The Notification\'s "read" must be true or false.'], $body);
+    }
+
+    /** Only the server makes Notifications; one the client made up is dropped, not refused. */
+    public function testANotificationTheClientMadeUpIsIgnored(): void
+    {
+        $this->signIn();
+        $before = $this->getJson('/api/bootstrap')['data']['notifs'];
+
+        $body = $this->sync([['op' => 'put', 'type' => 'notifs', 'id' => 'nq0zz', 'data' => ['id' => 'nq0zz', 'type' => 'update', 'by' => null, 'project' => 'p4', 'text' => 'Launch is at risk', 'snippet' => '', 'at' => self::NOW, 'read' => false]]]);
+
+        self::assertSame(['ok' => true], $body);
+        self::assertSame($before, $this->getJson('/api/bootstrap')['data']['notifs']);
+    }
+
+    /** The frontend never deletes a Notification, but undo restores S.data as it was. */
+    public function testDeletingANotificationChangesNothing(): void
+    {
+        $notif = $this->notifySarah();
+
+        $body = $this->sync([['op' => 'delete', 'type' => 'notifs', 'id' => $notif['id']]]);
+
+        self::assertSame(['ok' => true], $body);
+        self::assertSame([$notif], $this->getJson('/api/bootstrap')['data']['notifs']);
+    }
+
+    /**
+     * Sarah, signed in, with the Notification she got for the Owner assigning her t4.
+     *
+     * @return array<string, mixed> the Notification as bootstrap shows it
+     */
+    private function notifySarah(): array
+    {
+        $this->signIn();
+        $this->sync([['op' => 'put', 'type' => 'tasks', 'id' => 't4', 'data' => [...$this->task('t4'), 'assignee' => 'm2']]]);
+        $this->switchTo('sarah@gr8rstudio.com');
+
+        return $this->getJson('/api/bootstrap')['data']['notifs'][0];
+    }
+
     /**
      * A new Comment on t4 as the frontend's postComment() sends it.
      *
