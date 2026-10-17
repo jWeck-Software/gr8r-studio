@@ -4,6 +4,8 @@ namespace App\Sync\Handler;
 
 use App\Access\WorkspaceAccess;
 use App\Entity\Member;
+use App\Entity\Project;
+use App\Entity\Task;
 use App\Entity\Team;
 use App\Sync\CollectionHandler;
 use App\Sync\Fields;
@@ -55,8 +57,25 @@ final readonly class MemberHandler implements CollectionHandler
         return [];
     }
 
+    /**
+     * Removes the Member from the Workspace: their Tasks become unassigned, they leave every
+     * Project (as its lead too), and their favorites go with them. Their User stays, without a
+     * Workspace. Changed through the entity manager, so later ops of the same batch see it.
+     */
     public function delete(Member $actor, string $id): void
     {
+        $member = $this->em->find(Member::class, $id);
+        if (null === $member || $member->getWorkspace() !== $actor->getWorkspace()) {
+            return;
+        }
+        self::refuse($this->access->whyNotRemove($actor, $member));
+        foreach ($this->em->getRepository(Task::class)->findBy(['assignee' => $member]) as $task) {
+            $task->unassign();
+        }
+        foreach ($this->em->getRepository(Project::class)->findBy(['workspace' => $actor->getWorkspace()]) as $project) {
+            $project->dropMember($id);
+        }
+        $this->em->remove($member);
     }
 
     /**

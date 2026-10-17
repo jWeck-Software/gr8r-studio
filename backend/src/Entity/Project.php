@@ -98,6 +98,15 @@ class Project
         return $this->members;
     }
 
+    /** A Member who leaves the Workspace leaves the Project: they are no longer in it nor its lead. */
+    public function dropMember(string $memberId): void
+    {
+        $this->members = array_values(array_diff($this->members, [$memberId]));
+        if ($this->lead === $memberId) {
+            $this->lead = null;
+        }
+    }
+
     /** @param array<string, mixed> $record a Project in the frontend's shape */
     public function update(array $record): void
     {

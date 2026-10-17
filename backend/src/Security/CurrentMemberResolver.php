@@ -9,9 +9,8 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Controller\ValueResolverInterface;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
-/** Gives controllers the Member the signed-in User acts as, via a `Member $member` argument. */
+/** Gives controllers the Member the signed-in User acts as, via a `Member $member` argument; NoWorkspace when there is none. */
 final readonly class CurrentMemberResolver implements ValueResolverInterface
 {
     public function __construct(
@@ -29,7 +28,7 @@ final readonly class CurrentMemberResolver implements ValueResolverInterface
         $user = $this->security->getUser();
         $member = $user instanceof User ? $this->members->forUser($user) : null;
         if (null === $member) {
-            throw new AccessDeniedHttpException('You are not a Member of any Workspace.');
+            throw new NoWorkspace();
         }
 
         return [$member];

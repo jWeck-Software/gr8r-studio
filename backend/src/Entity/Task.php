@@ -146,6 +146,11 @@ class Task
         $this->archivedAt = $record['archivedAt'] ?? null;
     }
 
+    public function unassign(): void
+    {
+        $this->assignee = null;
+    }
+
     /** @param int $updated epoch milliseconds */
     public function touch(int $updated): void
     {

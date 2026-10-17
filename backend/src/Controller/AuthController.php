@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Entity\Member;
 use App\Entity\User;
 use App\Security\SignedIn;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -25,8 +26,9 @@ final class AuthController extends AbstractController
         throw new \LogicException('The firewall handles sign-out.');
     }
 
+    /** A User who is no Member of any Workspace (any more) is 403 `no_workspace`, via the Member argument. */
     #[Route('/api/me', name: 'api_me', methods: ['GET'])]
-    public function me(#[CurrentUser] User $user, SignedIn $signedIn): JsonResponse
+    public function me(#[CurrentUser] User $user, Member $member, SignedIn $signedIn): JsonResponse
     {
         return new JsonResponse($signedIn->body($user));
     }

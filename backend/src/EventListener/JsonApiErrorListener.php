@@ -2,6 +2,7 @@
 
 namespace App\EventListener;
 
+use App\Security\NoWorkspace;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -55,7 +56,7 @@ final readonly class JsonApiErrorListener
             $status = 422;
         }
         $event->setResponse(new JsonResponse(
-            ['error' => self::CODES[$status] ?? 'error', 'message' => $exception->getMessage()],
+            ['error' => $exception instanceof NoWorkspace ? NoWorkspace::ERROR : self::CODES[$status] ?? 'error', 'message' => $exception->getMessage()],
             $status,
             $exception->getHeaders(),
         ));

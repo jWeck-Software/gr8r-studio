@@ -39,6 +39,20 @@ final readonly class WorkspaceAccess
     }
 
     /**
+     * Why the actor may not remove the Member from the Workspace, or null when they may. Nobody
+     * removes themselves, so the last Owner always stays.
+     */
+    public function whyNotRemove(Member $actor, Member $member): ?string
+    {
+        return match (true) {
+            !$this->manages($actor) => 'Only Owners and Admins remove Members.',
+            $actor === $member => 'You cannot remove yourself from the Workspace.',
+            'Owner' === $member->getRole() && 'Owner' !== $actor->getRole() => 'Only an Owner removes an Owner.',
+            default => null,
+        };
+    }
+
+    /**
      * Why the actor may not change these fields of the Member, or null when they may.
      *
      * @param array{name: string, title: string, c: string, role: string, team: string} $changes
