@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\Member;
+use App\File\FileCopy;
 use App\File\FileRefused;
 use App\File\Files;
 use App\File\NewFile;
@@ -34,6 +35,17 @@ final class FileController extends AbstractController
     {
         try {
             return $files->download($member, $file);
+        } catch (FileRefused $refused) {
+            return new JsonResponse($refused->body(), $refused->status);
+        }
+    }
+
+    /** Duplicates the File, content included, under the id the client sends: `{"id": "…"}`. Answers 201 with the copy. */
+    #[Route('/api/files/{file}/copy', name: 'api_file_copy', methods: ['POST'])]
+    public function copy(string $file, #[MapRequestPayload(acceptFormat: 'json')] FileCopy $body, Member $member, Files $files): JsonResponse
+    {
+        try {
+            return new JsonResponse($files->copy($member, $file, $body->id), 201);
         } catch (FileRefused $refused) {
             return new JsonResponse($refused->body(), $refused->status);
         }

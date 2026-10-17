@@ -259,6 +259,33 @@ final class FilesTest extends ApiTestCase
         self::assertSame(['error' => 'forbidden', 'op' => 0, 'message' => 'You may not change the File "fcp1".'], $body);
     }
 
+    public function testDuplicatingAFileCopiesItsContentUnderANewId(): void
+    {
+        $this->upload('notes.txt', 'hello', ['id' => 'fup1', 'project' => 'p1', 'task' => 't4']);
+        $this->switchTo('sarah@gr8rstudio.com');
+
+        $body = $this->postJson('/api/files/fup1/copy', ['id' => 'fup2']);
+
+        self::assertResponseStatusCodeSame(201);
+        $copy = ['id' => 'fup2', 'project' => 'p1', 'name' => 'notes copy.txt', 'type' => 'doc', 'size' => '5 B', 'by' => 'm2', 'at' => self::NOW, 'task' => 't4'];
+        self::assertSame($copy, $body);
+        self::assertSame($copy, $this->file('fup2'));
+        $this->client->request('GET', '/api/files/fup2/content');
+        self::assertSame('hello', $this->client->getInternalResponse()->getContent());
+    }
+
+    public function testAFileOfAPrivateProjectCannotBeDuplicatedByThoseOutsideIt(): void
+    {
+        $this->switchTo('marcus@gr8rstudio.com');
+        $this->upload('contract.pdf', 'terms', ['id' => 'fcp1', 'project' => 'p6']);
+        $this->switchTo(self::OWNER_EMAIL);
+
+        $body = $this->postJson('/api/files/fcp1/copy', ['id' => 'fcp2']);
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame('not_found', $body['error']);
+    }
+
     /**
      * @param array<mixed> $ops
      *

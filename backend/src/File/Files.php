@@ -62,36 +62,24 @@ final readonly class Files
             throw FileRefused::invalid('A File needs a name of at most 255 characters.');
         }
         $this->assertNewId($id);
-        $written = null;
-        try {
-            return $this->transaction->run(function () use ($actor, $upload, $id, $projectId, $taskId, $name, &$written): array {
-                $ws = $actor->getWorkspace();
-                $project = $this->em->find(Project::class, $projectId);
-                if (null === $project || $project->getWorkspace() !== $ws) {
-                    throw FileRefused::invalid(\sprintf('The File\'s Project "%s" does not exist.', $projectId));
-                }
-                $this->authorize($actor, $project);
-                $task = null;
-                if (null !== $taskId && '' !== $taskId) {
-                    $task = $this->em->find(Task::class, $taskId);
-                    if (null === $task || $task->getProject() !== $project) {
-                        throw FileRefused::invalid(\sprintf('The File\'s Task "%s" is not in the Project "%s".', $taskId, $projectId));
-                    }
-                }
-                $file = new File($id, $ws, $project, $task, $name, File::sizeOf((int) $upload->getSize()), $actor->getId(), $this->now());
-                $this->em->persist($file);
-                $this->em->flush();
-                $written = $this->path($file);
-                $upload->move(\dirname($written), basename($written));
 
-                return $file->toRecord();
-            });
-        } catch (\Throwable $e) {
-            if (null !== $written) {
-                $this->filesystem->remove($written);
+        return $this->create(function () use ($actor, $upload, $id, $projectId, $taskId, $name): File {
+            $ws = $actor->getWorkspace();
+            $project = $this->em->find(Project::class, $projectId);
+            if (null === $project || $project->getWorkspace() !== $ws) {
+                throw FileRefused::invalid(\sprintf('The File\'s Project "%s" does not exist.', $projectId));
             }
-            throw $e;
-        }
+            $this->authorize($actor, $project);
+            $task = null;
+            if (null !== $taskId && '' !== $taskId) {
+                $task = $this->em->find(Task::class, $taskId);
+                if (null === $task || $task->getProject() !== $project) {
+                    throw FileRefused::invalid(\sprintf('The File\'s Task "%s" is not in the Project "%s".', $taskId, $projectId));
+                }
+            }
+
+            return new File($id, $ws, $project, $task, $name, File::sizeOf((int) $upload->getSize()), $actor->getId(), $this->now());
+        }, static fn (string $path) => $upload->move(\dirname($path), basename($path)));
     }
 
     /**
@@ -119,6 +107,29 @@ final readonly class Files
         $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $safe, preg_replace('/[^\x20-\x7e]|%/u', '_', $safe));
 
         return $response;
+    }
+
+    /**
+     * Duplicates a File the actor may change, content included: the copy is named like the
+     * frontend's "Duplicate" (" copy" before the extension) and is the actor's, made now.
+     *
+     * @return array<string, mixed> the copy in the frontend's shape
+     *
+     * @throws FileRefused
+     */
+    public function copy(Member $actor, string $sourceId, string $id): array
+    {
+        $source = $this->em->find(File::class, $sourceId);
+        if (null === $source || !$this->access->sees($actor, $source->getProject())) {
+            throw FileRefused::notFound();
+        }
+        $this->authorize($actor, $source->getProject());
+        $this->assertNewId($id);
+
+        return $this->create(
+            fn (): File => $source->copy($id, $actor->getId(), $this->now()),
+            fn (string $path) => $this->filesystem->copy($this->path($source), $path),
+        );
     }
 
     /**
@@ -150,6 +161,36 @@ final readonly class Files
     public function forgetWorkspace(int $workspaceId): void
     {
         $this->filesystem->remove($this->storageDir.'/'.$workspaceId);
+    }
+
+    /**
+     * Stores the File that `$file` makes, then has `$write` put its content at its path, in one
+     * transaction: when either fails, nothing is stored and the content written is removed again.
+     *
+     * @param \Closure(): File        $file
+     * @param \Closure(string): mixed $write
+     *
+     * @return array<string, mixed> the File in the frontend's shape
+     */
+    private function create(\Closure $file, \Closure $write): array
+    {
+        $written = null;
+        try {
+            return $this->transaction->run(function () use ($file, $write, &$written): array {
+                $created = $file();
+                $this->em->persist($created);
+                $this->em->flush();
+                $written = $this->path($created);
+                $write($written);
+
+                return $created->toRecord();
+            });
+        } catch (\Throwable $e) {
+            if (null !== $written) {
+                $this->filesystem->remove($written);
+            }
+            throw $e;
+        }
     }
 
     private function assertNewId(string $id): void
