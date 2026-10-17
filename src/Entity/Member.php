@@ -35,16 +35,16 @@ class Member
         private string $name,
         #[ORM\Column(length: 180)]
         private string $email,
-        #[ORM\Column(length: 20)]
-        private string $role,
+        #[ORM\Column(length: 20, enumType: Role::class)]
+        private Role $role,
         #[ORM\Column(length: 44)]
         private string $team,
         #[ORM\Column(length: 120)]
         private string $title,
         #[ORM\Column(length: 20)]
         private string $c,
-        #[ORM\Column(length: 20)]
-        private string $status,
+        #[ORM\Column(length: 20, enumType: MemberStatus::class)]
+        private MemberStatus $status,
         #[ORM\Column(nullable: true)]
         private ?int $last,
         #[ORM\Column(length: 80)]
@@ -68,7 +68,7 @@ class Member
     /** A Guest only reads the Projects they belong to and comments on them. */
     public function isGuest(): bool
     {
-        return 'Guest' === $this->role;
+        return Role::Guest === $this->role;
     }
 
     public function getName(): string
@@ -84,7 +84,7 @@ class Member
     /** Invited and not joined yet: the Member has no User until they accept the Invite. */
     public function isInvited(): bool
     {
-        return 'invited' === $this->status;
+        return MemberStatus::Invited === $this->status;
     }
 
     public function getUser(): ?User
@@ -92,7 +92,13 @@ class Member
         return $this->user;
     }
 
-    public function getRole(): string
+    /** Joined: the Member signs in as their User. */
+    public function isActive(): bool
+    {
+        return MemberStatus::Active === $this->status;
+    }
+
+    public function getRole(): Role
     {
         return $this->role;
     }
@@ -101,7 +107,7 @@ class Member
      * What a Member's put may change; the rest (email, status, last active, time zone) is the server's.
      * A new name is their User's too, the one they sign in with.
      *
-     * @param array{name: string, title: string, c: string, role: string, team: string} $changes
+     * @param array{name: string, title: string, c: string, role: Role, team: string} $changes
      */
     public function update(array $changes): void
     {
@@ -120,7 +126,7 @@ class Member
     {
         $this->user = $user;
         $this->name = $name;
-        $this->status = 'active';
+        $this->status = MemberStatus::Active;
         $this->last = 0;
     }
 
@@ -167,11 +173,11 @@ class Member
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
-            'role' => $this->role,
+            'role' => $this->role->value,
             'team' => $this->team,
             'title' => $this->title,
             'c' => $this->c,
-            'status' => $this->status,
+            'status' => $this->status->value,
             'last' => $this->last,
             'tz' => $this->tz,
         ];

@@ -8,8 +8,10 @@ use App\Entity\Comment;
 use App\Entity\Event;
 use App\Entity\File;
 use App\Entity\Member;
+use App\Entity\MemberStatus;
 use App\Entity\Notification;
 use App\Entity\Project;
+use App\Entity\Role;
 use App\Entity\SavedView;
 use App\Entity\Task;
 use App\Entity\Team;
@@ -114,7 +116,7 @@ final class DemoSeed
                 $user->setPassword($this->hasher->hashPassword($user, self::PASSWORD));
                 $this->em->persist($user);
             }
-            $members[$id] = new Member($id, $ws, $name, $email, $role, $team, $title, $c, $status, $last, $tz, $user);
+            $members[$id] = new Member($id, $ws, $name, $email, Role::from($role), $team, $title, $c, MemberStatus::from($status), $last, $tz, $user);
             $members[$id]->keepPersonal('notifPrefs', WorkspaceDefaults::NOTIF_PREFS);
             $this->em->persist($members[$id]);
         }

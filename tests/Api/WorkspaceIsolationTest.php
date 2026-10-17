@@ -3,7 +3,9 @@
 namespace App\Tests\Api;
 
 use App\Entity\Member;
+use App\Entity\MemberStatus;
 use App\Entity\Project;
+use App\Entity\Role;
 use App\Entity\Task;
 use App\Entity\User;
 use App\Entity\Workspace;
@@ -161,7 +163,7 @@ final class WorkspaceIsolationTest extends ApiTestCase
         $ws = new Workspace('Acme Labs', 'acme', '#3B82C4', false, ['pac1']);
         $user = new User('ada@acme.test', 'Ada Byron');
         $user->setPassword($hasher->hashPassword($user, 'acme-password'));
-        $member = new Member('mac1', $ws, 'Ada Byron', 'ada@acme.test', 'Owner', '', 'Founder', '#3B82C4', 'active', 0, 'London', $user);
+        $member = new Member('mac1', $ws, 'Ada Byron', 'ada@acme.test', Role::Owner, '', 'Founder', '#3B82C4', MemberStatus::Active, 0, 'London', $user);
         $project = new Project('pac1', $ws);
         $project->update([
             'key' => 'ACME', 'name' => 'Rocket Skates', 'icon' => 'rocket', 'color' => 'blue', 'status' => 'active', 'team' => '',

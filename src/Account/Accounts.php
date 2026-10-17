@@ -4,6 +4,8 @@ namespace App\Account;
 
 use App\Access\WorkspaceAccess;
 use App\Entity\Member;
+use App\Entity\MemberStatus;
+use App\Entity\Role;
 use App\Entity\Team;
 use App\Entity\User;
 use App\Entity\Workspace;
@@ -219,7 +221,7 @@ final readonly class Accounts
                 throw AccountRefused::urlTaken($url);
             }
             $ws = new Workspace($name, $url, $c);
-            $owner = new Member(self::newId('m'), $ws, $user->getName(), $user->getEmail(), 'Owner', '', '', '#5A67D8', 'active', 0, '—', $user);
+            $owner = new Member(self::newId('m'), $ws, $user->getName(), $user->getEmail(), Role::Owner, '', '', '#5A67D8', MemberStatus::Active, 0, '—', $user);
             $owner->keepPersonal('notifPrefs', WorkspaceDefaults::NOTIF_PREFS);
             $this->em->persist($ws);
             $this->em->persist($owner);

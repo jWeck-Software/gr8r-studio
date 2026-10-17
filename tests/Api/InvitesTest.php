@@ -4,6 +4,8 @@ namespace App\Tests\Api;
 
 use App\Account\WorkspaceDefaults;
 use App\Entity\Member;
+use App\Entity\MemberStatus;
+use App\Entity\Role;
 use App\Entity\User;
 use App\Entity\Workspace;
 use Doctrine\ORM\EntityManagerInterface;
@@ -307,7 +309,7 @@ final class InvitesTest extends ApiTestCase
         $acme = new Workspace('Acme Labs', 'acme', '#3B82C4', false, []);
         $ada = new User('ada@acme.test', 'Ada Byron');
         $ada->setPassword($hasher->hashPassword($ada, 'acme-password'));
-        foreach ([$acme, $ada, new Member('mac1', $acme, 'Ada Byron', 'ada@acme.test', 'Owner', '', 'Founder', '#3B82C4', 'active', 0, 'London', $ada)] as $entity) {
+        foreach ([$acme, $ada, new Member('mac1', $acme, 'Ada Byron', 'ada@acme.test', Role::Owner, '', 'Founder', '#3B82C4', MemberStatus::Active, 0, 'London', $ada)] as $entity) {
             $em->persist($entity);
         }
         $em->flush();

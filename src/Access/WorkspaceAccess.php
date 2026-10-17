@@ -3,6 +3,8 @@
 namespace App\Access;
 
 use App\Entity\Member;
+use App\Entity\MemberStatus;
+use App\Entity\Role;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -25,23 +27,23 @@ final readonly class WorkspaceAccess
     /** Whether the Member manages people, Teams and the Workspace's settings: Owners and Admins. */
     public function manages(Member $member): bool
     {
-        return \in_array($member->getRole(), ['Owner', 'Admin'], true);
+        return \in_array($member->getRole(), [Role::Owner, Role::Admin], true);
     }
 
     /** Why the actor may not invite someone into the Workspace with this Role, or null when they may. */
-    public function whyNotInvite(Member $actor, string $role): ?string
+    public function whyNotInvite(Member $actor, Role $role): ?string
     {
         if (!$this->manages($actor)) {
             return 'Only Owners and Admins invite people.';
         }
 
-        return 'Owner' === $role && 'Owner' !== $actor->getRole() ? self::OWNERS_ONLY : null;
+        return Role::Owner === $role && Role::Owner !== $actor->getRole() ? self::OWNERS_ONLY : null;
     }
 
     /** Why the actor may not delete the Workspace, or null when they may: only its Owners do. */
     public function whyNotDeleteWorkspace(Member $actor): ?string
     {
-        return 'Owner' === $actor->getRole() ? null : 'Only an Owner deletes the Workspace.';
+        return Role::Owner === $actor->getRole() ? null : 'Only an Owner deletes the Workspace.';
     }
 
     /**
@@ -53,7 +55,7 @@ final readonly class WorkspaceAccess
         return match (true) {
             !$this->manages($actor) => 'Only Owners and Admins remove Members.',
             $actor === $member => 'You cannot remove yourself from the Workspace.',
-            'Owner' === $member->getRole() && 'Owner' !== $actor->getRole() => 'Only an Owner removes an Owner.',
+            Role::Owner === $member->getRole() && Role::Owner !== $actor->getRole() => 'Only an Owner removes an Owner.',
             default => null,
         };
     }
@@ -61,23 +63,23 @@ final readonly class WorkspaceAccess
     /**
      * Why the actor may not change these fields of the Member, or null when they may.
      *
-     * @param array{name: string, title: string, c: string, role: string, team: string} $changes
+     * @param array{name: string, title: string, c: string, role: Role, team: string} $changes
      */
     public function whyNotChange(Member $actor, Member $member, array $changes): ?string
     {
-        $stored = $member->toRecord();
-        $changed = array_keys(array_filter($changes, static fn (string $value, string $field): bool => $stored[$field] !== $value, \ARRAY_FILTER_USE_BOTH));
+        $stored = [...$member->toRecord(), 'role' => $member->getRole()];
+        $changed = array_keys(array_filter($changes, static fn (string|Role $value, string $field): bool => $stored[$field] !== $value, \ARRAY_FILTER_USE_BOTH));
         if ([] !== array_intersect($changed, ['name', 'title', 'c']) && $actor !== $member) {
             return 'Only the Member themselves changes their name, title and avatar colour.';
         }
         if (\in_array('role', $changed, true) && !$this->manages($actor)) {
             return 'Only Owners and Admins change Roles.';
         }
-        if (\in_array('role', $changed, true) && \in_array('Owner', [$stored['role'], $changes['role']], true)) {
-            if ('Owner' !== $actor->getRole()) {
+        if (\in_array('role', $changed, true) && \in_array(Role::Owner, [$stored['role'], $changes['role']], true)) {
+            if (Role::Owner !== $actor->getRole()) {
                 return self::OWNERS_ONLY;
             }
-            if ('Owner' === $stored['role'] && 'active' === $stored['status'] && 1 === $this->owners($member)) {
+            if (Role::Owner === $stored['role'] && $member->isActive() && 1 === $this->owners($member)) {
                 return 'The Workspace needs at least one Owner.';
             }
         }
@@ -92,7 +94,7 @@ final readonly class WorkspaceAccess
     private function owners(Member $member): int
     {
         return (int) $this->em->createQuery('SELECT COUNT(m.id) FROM '.Member::class.' m WHERE m.workspace = :ws AND m.role = :owner AND m.status = :active')
-            ->setParameters(['ws' => $member->getWorkspace(), 'owner' => 'Owner', 'active' => 'active'])
+            ->setParameters(['ws' => $member->getWorkspace(), 'owner' => Role::Owner, 'active' => MemberStatus::Active])
             ->getSingleScalarResult();
     }
 }

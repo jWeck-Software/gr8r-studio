@@ -4,6 +4,8 @@ namespace App\Sync\Handler;
 
 use App\Access\WorkspaceAccess;
 use App\Entity\Member;
+use App\Entity\MemberStatus;
+use App\Entity\Role;
 use App\Invite\Invites;
 use App\Entity\Project;
 use App\Entity\Task;
@@ -20,8 +22,6 @@ use Doctrine\ORM\EntityManagerInterface;
  */
 final readonly class MemberHandler implements CollectionHandler
 {
-    private const array ROLES = ['Owner', 'Admin', 'Member', 'Guest'];
-
     public function __construct(
         private EntityManagerInterface $em,
         private WorkspaceAccess $access,
@@ -42,7 +42,7 @@ final readonly class MemberHandler implements CollectionHandler
             'name' => $fields->nonEmptyString('name', 120),
             'title' => $fields->string('title', 120),
             'c' => $fields->colour('c'),
-            'role' => $fields->oneOf('role', self::ROLES),
+            'role' => Role::from($fields->oneOf('role', Role::values())),
             'team' => $fields->string('team', 44),
         ];
         $this->assertTeam($actor, $changes['team']);
@@ -85,12 +85,12 @@ final readonly class MemberHandler implements CollectionHandler
      * A Member the Workspace doesn't have yet is someone invited by email: they have no User until
      * they accept the Invite they are sent.
      *
-     * @param array{name: string, title: string, c: string, role: string, team: string} $changes
+     * @param array{name: string, title: string, c: string, role: Role, team: string} $changes
      */
     private function invite(Member $actor, string $id, Fields $fields, array $changes): void
     {
         self::refuse($this->access->whyNotInvite($actor, $changes['role']));
-        if ('invited' !== $fields->string('status')) {
+        if (MemberStatus::Invited->value !== $fields->string('status')) {
             throw SyncRejected::invalid('A new Member is invited: their "status" must be "invited".');
         }
         $email = mb_strtolower($fields->string('email', 180));
@@ -100,7 +100,7 @@ final readonly class MemberHandler implements CollectionHandler
         if (null !== $this->em->getRepository(Member::class)->findOneBy(['workspace' => $actor->getWorkspace(), 'email' => $email])) {
             throw SyncRejected::invalid(\sprintf('%s is already a Member of this Workspace.', $email));
         }
-        $member = new Member($id, $actor->getWorkspace(), $changes['name'], $email, $changes['role'], $changes['team'], $changes['title'], $changes['c'], 'invited', null, $fields->string('tz', 80));
+        $member = new Member($id, $actor->getWorkspace(), $changes['name'], $email, $changes['role'], $changes['team'], $changes['title'], $changes['c'], MemberStatus::Invited, null, $fields->string('tz', 80));
         $this->em->persist($member);
         $this->invites->send($actor, $member);
     }
